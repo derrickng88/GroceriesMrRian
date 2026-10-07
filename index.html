@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Smart Grocery & Budget Safety Tracker</title>
+  
+  <!-- PWA Meta Tags -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0c101d">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SmartGrocery">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+
+  <!-- SEO & Description -->
+  <meta name="description" content="Aplikasi mobile PWA pelacak belanja supermarket dan batas aman anggaran bulanan khusus anak rantau saat mendorong troli.">
+
+  <!-- Fonts & Stylesheet -->
+  <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+  <!-- Ambient backdrop lights for desktop centered experience -->
+  <div id="app-viewport-wrapper">
+    <div class="ambient-glow glow-left"></div>
+    <div class="ambient-glow glow-right"></div>
+
+    <!-- Phone Shell (Max 430px centered on Desktop, 100% full screen on Mobile) -->
+    <main id="mobile-container">
+      
+      <!-- Simulated Phone Status Bar -->
+      <div class="mobile-status-bar" id="mobileStatusBar">
+        <span id="liveClock">11:30</span>
+        <div class="notch-pill">
+          <div class="notch-dot"></div>
+        </div>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span style="font-size:0.68rem; color:#10b981; font-weight:700;">4G • PWA</span>
+          <i data-lucide="wifi" style="width:13px; height:13px;"></i>
+          <i data-lucide="battery-charging" style="width:14px; height:14px; color:#10b981;"></i>
+        </div>
+      </div>
+
+      <!-- APP HEADER & LIVE SAFETY CAP BUDGET TRACKER (F-05) -->
+      <header class="app-header">
+        <div class="brand-row">
+          <div class="brand-title">
+            <div class="brand-icon">
+              <i data-lucide="shopping-cart"></i>
+            </div>
+            <div class="brand-text">
+              <h1>Smart Grocery</h1>
+              <span>Budget Safety Tracker • Anak Rantau</span>
+            </div>
+          </div>
+          <div class="header-actions">
+            <button class="icon-btn-header" id="btnOpenFirebaseModal" title="Cloud Firestore (groceriesmrrian)">
+              <i data-lucide="cloud" style="width:18px; height:18px; color:#f59e0b;"></i>
+            </button>
+            <button class="icon-btn-header" id="btnOpenBudgetModal" title="Atur Batas Anggaran">
+              <i data-lucide="sliders-horizontal" style="width:18px; height:18px;"></i>
+            </button>
+            <button class="icon-btn-header" id="btnHelpPwa" title="Panduan & Mode PWA">
+              <i data-lucide="info" style="width:18px; height:18px;"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- F-05: Safety Cap Live Budget Card -->
+        <section class="safety-cap-card" id="safetyCapCard" aria-label="Status Anggaran Belanja">
+          <div class="safety-header">
+            <div class="safety-badge safe" id="safetyBadge">
+              <i data-lucide="shield-check" style="width:12px; height:12px;" id="safetyBadgeIcon"></i>
+              <span id="safetyBadgeText">ZONA AMAN</span>
+            </div>
+            <button class="budget-edit-trigger" id="btnQuickEditBudget">
+              <span id="headerBudgetCapDisplay">Batas: Rp 500.000</span>
+              <i data-lucide="edit-3" style="width:12px; height:12px;"></i>
+            </button>
+          </div>
+
+          <div class="budget-figures">
+            <div>
+              <div class="figure-current" id="headerTotalSpent">Rp 0</div>
+              <div class="figure-limit" id="headerRemainingAmount">Sisa Dompet: Rp 500.000</div>
+            </div>
+            <div style="text-align: right;">
+              <span style="font-size: 1.35rem; font-weight: 800; font-family: var(--font-display);" id="headerBudgetPercent">0%</span>
+              <div style="font-size: 0.68rem; color: var(--text-muted);">Terpakai</div>
+            </div>
+          </div>
+
+          <div class="progress-container">
+            <div class="progress-fill safe" id="budgetProgressFill" style="width: 0%;"></div>
+          </div>
+
+          <div class="safety-footer">
+            <span class="safety-alert-text safe" id="safetyAdviceText">Dompet aman. Belanja masih terkendali.</span>
+            <span id="cartTotalItemsCount">0 Item</span>
+          </div>
+        </section>
+      </header>
+
+      <!-- SCROLLABLE CONTENT VIEWS -->
+      <section id="content-area">
+
+        <!-- TAB 1: BELANJA (Active Shopping Trolley View) -->
+        <article id="view-shopping" class="view-section active">
+          
+          <!-- PWA Install Banner (If available) -->
+          <div class="pwa-install-banner" id="pwaInstallBanner" style="display:none;">
+            <div class="pwa-banner-text">
+              <strong>Pasang Aplikasi (PWA)</strong><br>
+              Akses cepat satu tap di beranda smartphone tanpa internet saat belanja!
+            </div>
+            <button class="btn-pwa-install" id="btnInstallPwa">Pasang</button>
+          </div>
+
+          <div class="cart-summary-banner">
+            <div class="cart-count-badge">
+              <i data-lucide="shopping-bag" style="width:16px; height:16px; color:var(--color-primary-light);"></i>
+              <span id="cartCountSummary">Troli: 0 Produk</span>
+            </div>
+            <div class="cart-savings-chip" id="cartSavingsSummary" style="display:none;">
+              <i data-lucide="sparkles" style="width:13px; height:13px;"></i>
+              <span id="cartTotalSavingsText">Hemat Rp 0</span>
+            </div>
+          </div>
+
+          <!-- Empty State (When cart is empty) -->
+          <div class="empty-cart-state" id="emptyCartBox" style="display:none;">
+            <i data-lucide="shopping-cart" class="empty-cart-icon"></i>
+            <h3 style="font-size:1.05rem; font-weight:700; color:#fff;">Troli Masih Kosong</h3>
+            <p style="font-size:0.8rem; margin:6px 0 16px;">Mulai masukkan belanjaan sambil menyusuri rak supermarket.</p>
+            <button class="btn-secondary-sm" id="btnEmptyAdd" style="margin:0 auto; padding:10px 18px; font-size:0.85rem;">
+              <i data-lucide="plus" style="width:16px; height:16px;"></i> Tambah Barang Pertama
+            </button>
+          </div>
+
+          <!-- Trolley List of Cards (F-01, F-02, F-03, F-04) -->
+          <div class="cart-list" id="cartItemsContainer">
+            <!-- Rendered dynamically -->
+          </div>
+
+          <!-- Trolley Bottom Action (Checkout / Selesaikan Belanja F-06) -->
+          <div class="cart-action-bar" id="cartActionBar">
+            <button class="btn-checkout" id="btnCheckout">
+              <i data-lucide="check-circle-2"></i>
+              <span>Selesaikan Belanja (Checkout)</span>
+            </button>
+            <button class="btn-secondary-sm" id="btnClearCart" style="height:40px; color:var(--text-secondary); background:transparent; border:none;">
+              <i data-lucide="trash-2" style="width:15px; height:15px;"></i> Kosongkan Troli
+            </button>
+          </div>
+        </article>
+
+        <!-- TAB 2: RIWAYAT & DATABASE BELANJA (F-06) -->
+        <article id="view-history" class="view-section">
+          <div class="section-header-box">
+            <h2 class="section-title">Riwayat Belanja Bulanan</h2>
+            <p class="section-subtitle">Rekam jejak transaksi & perbandingan pengeluaran anak rantau.</p>
+          </div>
+
+          <!-- Stats Overview -->
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-card-title">Total Belanja Tercatat</div>
+              <div class="stat-card-val" id="statsTotalSpent">Rp 0</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-card-title">Total Diskon Dihemat</div>
+              <div class="stat-card-val savings" id="statsTotalSaved">Rp 0</div>
+            </div>
+          </div>
+
+          <!-- History List Cards -->
+          <div class="history-list" id="historyListContainer">
+            <!-- Dynamic history cards -->
+          </div>
+        </article>
+
+        <!-- TAB 3: ANGGARAN & DATABASE REFERENSI (F-05, F-06) -->
+        <article id="view-budget" class="view-section">
+          <div class="section-header-box">
+            <h2 class="section-title">Pengaturan Anggaran</h2>
+            <p class="section-subtitle">Kelola Safety Cap & database patokan harga supermarket.</p>
+          </div>
+
+          <!-- Budget Config Card -->
+          <div class="budget-config-card">
+            <div class="config-group">
+              <label class="config-label" for="inputBudgetSetting">Batas Maksimal Dompet (Safety Cap Bulanan):</label>
+              <div class="input-with-prefix">
+                <span class="input-prefix">Rp</span>
+                <input type="number" id="inputBudgetSetting" class="input-currency-large" placeholder="500000" inputmode="numeric">
+              </div>
+              <div class="budget-preset-chips">
+                <button class="preset-chip" data-preset="350000">Rp 350.000</button>
+                <button class="preset-chip" data-preset="500000">Rp 500.000</button>
+                <button class="preset-chip" data-preset="750000">Rp 750.000</button>
+                <button class="preset-chip" data-preset="1000000">Rp 1.000.000</button>
+              </div>
+            </div>
+            <button class="btn-secondary-sm" id="btnSaveBudgetSetting" style="width:100%; height:44px; background:var(--color-primary); color:#fff; font-size:0.88rem;">
+              <i data-lucide="check" style="width:16px; height:16px;"></i> Simpan Batas Anggaran
+            </button>
+          </div>
+
+          <!-- Firebase Cloud Firestore Sync Card (groceriesmrrian) -->
+          <div class="firebase-sync-card">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <div class="firebase-icon-box">
+                  <i data-lucide="cloud" style="width:18px; height:18px; color:#f59e0b;"></i>
+                </div>
+                <div>
+                  <h3 style="font-size:0.95rem; font-weight:800; color:#fff;">Cloud Firestore Sync</h3>
+                  <span style="font-size:0.72rem; color:var(--text-muted);">Project: <strong>groceriesmrrian</strong> • DB: <strong>(default)</strong></span>
+                </div>
+              </div>
+              <span class="cloud-status-badge" id="cloudStatusBadge">Siap Terhubung</span>
+            </div>
+
+            <p style="margin-top:8px; font-size:0.78rem; color:var(--text-secondary); line-height:1.4;">
+              Sinkronkan belanjaan troli aktif, riwayat transaksi, dan patokan harga ke Google Cloud Firestore.
+            </p>
+
+            <div style="display:flex; gap:8px; margin-top:12px;">
+              <button class="btn-secondary-sm" id="btnSyncToCloud" style="background:linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color:#fff; font-weight:700;">
+                <i data-lucide="upload-cloud" style="width:15px; height:15px;"></i> Sinkron ke Cloud
+              </button>
+              <button class="btn-secondary-sm" id="btnPullFromCloud">
+                <i data-lucide="download-cloud" style="width:15px; height:15px;"></i> Tarik Data
+              </button>
+              <button class="btn-secondary-sm" id="btnConfigFirebase" style="flex:0 0 38px; padding:0;" title="Pengaturan Kunci Firebase">
+                <i data-lucide="settings" style="width:15px; height:15px;"></i>
+              </button>
+            </div>
+
+            <a href="https://console.firebase.google.com/u/0/project/groceriesmrrian/firestore/databases/-default-/data" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; gap:4px; font-size:0.72rem; color:#f59e0b; text-decoration:none; margin-top:10px; font-weight:600;">
+              <span>Buka Firebase Console Firestore</span>
+              <i data-lucide="external-link" style="width:12px; height:12px;"></i>
+            </a>
+          </div>
+
+          <!-- Reference Price Database (F-04 / F-06) -->
+          <div class="price-db-section">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <h3 style="font-size:0.95rem; font-weight:800; color:#fff;">Database Patokan Harga</h3>
+                <span style="font-size:0.72rem; color:var(--text-muted);">Dasar acuan komparator naik/turun harga</span>
+              </div>
+              <button class="btn-secondary-sm" id="btnAddNewDbItem" style="padding:4px 8px; font-size:0.7rem;">
+                <i data-lucide="plus" style="width:13px; height:13px;"></i> Tambah
+              </button>
+            </div>
+
+            <div class="search-input-box">
+              <i data-lucide="search"></i>
+              <input type="text" id="inputSearchDb" placeholder="Cari nama barang di database...">
+            </div>
+
+            <div class="db-items-list" id="dbItemsListContainer">
+              <!-- Dynamically populated reference items -->
+            </div>
+          </div>
+
+          <!-- Data Backup & Reset -->
+          <div class="backup-section">
+            <h3 style="font-size:0.92rem; font-weight:800; color:#fff;">Cadangan Data & Pengaturan</h3>
+            <div style="display:flex; gap:8px;">
+              <button class="btn-secondary-sm" id="btnExportData">
+                <i data-lucide="download" style="width:15px; height:15px;"></i> Backup Data
+              </button>
+              <button class="btn-secondary-sm" id="btnImportTrigger">
+                <i data-lucide="upload" style="width:15px; height:15px;"></i> Restore
+              </button>
+              <input type="file" id="fileImportInput" accept=".json" style="display:none;">
+            </div>
+            <button class="btn-secondary-sm" id="btnResetDefaults" style="color:var(--color-danger); border-color:var(--color-danger-border);">
+              <i data-lucide="refresh-cw" style="width:14px; height:14px;"></i> Reset ke Data Contoh Awal
+            </button>
+          </div>
+        </article>
+
+      </section>
+
+      <!-- FLOATING QUICK ADD BUTTON (FAB) FOR TROLLEY SHOPPING -->
+      <button class="fab-quick-add" id="fabQuickAdd" title="Tambah Barang Belanjaan Baru">
+        <i data-lucide="plus"></i>
+        <span>Tambah Barang</span>
+      </button>
+
+      <!-- FLOATING BOTTOM NAVIGATION BAR (Requirement #2) -->
+      <nav class="floating-bottom-nav" aria-label="Navigasi Menu Utama">
+        <button class="nav-tab-btn active" data-tab="view-shopping" id="tabNavShopping">
+          <i data-lucide="shopping-cart"></i>
+          <span class="nav-tab-label">Belanja</span>
+          <span class="nav-badge-count" id="bottomNavBadge" style="display:none;">0</span>
+        </button>
+        <button class="nav-tab-btn" data-tab="view-history" id="tabNavHistory">
+          <i data-lucide="history"></i>
+          <span class="nav-tab-label">Riwayat</span>
+        </button>
+        <button class="nav-tab-btn" data-tab="view-budget" id="tabNavBudget">
+          <i data-lucide="wallet"></i>
+          <span class="nav-tab-label">Anggaran</span>
+        </button>
+      </nav>
+
+    </main>
+  </div>
+
+  <!-- ========================================================================
+       MODAL BOTTOM SHEET: TAMBAH / EDIT ITEM BELANJA (F-01, F-02, F-03, F-04)
+       ======================================================================== -->
+  <div class="modal-backdrop" id="itemModalBackdrop">
+    <div class="modal-sheet" id="itemModalSheet">
+      <div class="modal-handle-bar"></div>
+      <div class="modal-sheet-header">
+        <h3 class="modal-title" id="itemModalTitle">Tambah Barang Belanja</h3>
+        <button class="modal-close-btn" id="btnCloseItemModal">
+          <i data-lucide="x" style="width:20px; height:20px;"></i>
+        </button>
+      </div>
+
+      <form id="itemForm" class="modal-sheet-content">
+        <input type="hidden" id="editItemId" value="">
+
+        <!-- F-01: Nama Produk & Quick Suggestions -->
+        <div class="form-field">
+          <label class="form-label" for="inputItemName">Nama Barang Supermarket:</label>
+          <input type="text" id="inputItemName" class="form-input-text" placeholder="Contoh: Beras Ramos 5kg, Telur 1kg..." required autocomplete="off">
+          
+          <!-- Quick Preset Chips Anak Rantau -->
+          <div class="quick-chip-scroll" style="margin-top:4px;">
+            <span class="quick-suggest-chip" data-name="Beras Ramos 5kg" data-cat="Bahan Pokok" data-unit="pack" data-price="72000">🍚 Beras 5kg</span>
+            <span class="quick-suggest-chip" data-name="Telur Ayam 1kg" data-cat="Telur & Lauk" data-unit="kg" data-price="28000">🥚 Telur 1kg</span>
+            <span class="quick-suggest-chip" data-name="Minyak Goreng 2L" data-cat="Bahan Pokok" data-unit="pack" data-price="37000">🌻 Minyak 2L</span>
+            <span class="quick-suggest-chip" data-name="Indomie Goreng" data-cat="Mie & Instan" data-unit="pcs" data-price="3100">🍜 Indomie</span>
+            <span class="quick-suggest-chip" data-name="Susu UHT 1L" data-cat="Minuman & Susu" data-unit="pcs" data-price="19500">🥛 Susu 1L</span>
+            <span class="quick-suggest-chip" data-name="Sabun Mandi Cair 450ml" data-cat="Sabun & Mandi" data-unit="pack" data-price="25000">🧼 Sabun Mandi</span>
+            <span class="quick-suggest-chip" data-name="Deterjen Bubuk 800g" data-cat="Cuci & Pembersih" data-unit="pack" data-price="22000">🧴 Deterjen</span>
+            <span class="quick-suggest-chip" data-name="Kopi Sachet 1 Renceng" data-cat="Minuman & Susu" data-unit="pack" data-price="15000">☕ Kopi Renceng</span>
+          </div>
+        </div>
+
+        <!-- F-01: Kategori Barang Selector -->
+        <div class="form-field">
+          <label class="form-label">Kategori Barang:</label>
+          <div class="pill-selector-row" id="categoryPillSelector">
+            <!-- Dynamic Category Pills -->
+          </div>
+          <input type="hidden" id="inputItemCategory" value="Bahan Pokok">
+        </div>
+
+        <!-- Satuan (kg, liter, pcs, pack, dll) -->
+        <div class="form-field">
+          <label class="form-label">Satuan Barang:</label>
+          <div class="pill-selector-row" id="unitPillSelector">
+            <span class="pill-option selected" data-unit="pcs">pcs</span>
+            <span class="pill-option" data-unit="kg">kg</span>
+            <span class="pill-option" data-unit="pack">pack</span>
+            <span class="pill-option" data-unit="liter">liter</span>
+            <span class="pill-option" data-unit="botol">botol</span>
+            <span class="pill-option" data-unit="dus">dus</span>
+            <span class="pill-option" data-unit="kaleng">kaleng</span>
+          </div>
+          <input type="hidden" id="inputItemUnit" value="pcs">
+        </div>
+
+        <!-- F-01 & F-02: Harga Satuan & Kuantitas -->
+        <div style="display:grid; grid-template-columns: 1.3fr 1fr; gap:10px;">
+          <div class="form-field">
+            <label class="form-label" for="inputItemPrice">Harga Satuan (Rp):</label>
+            <input type="number" id="inputItemPrice" class="form-input-text" placeholder="Contoh: 28000" inputmode="numeric" required>
+          </div>
+
+          <!-- F-02: Kuantitas Beli (Qty) -->
+          <div class="form-field">
+            <label class="form-label" for="inputItemQty">Jumlah (Qty):</label>
+            <div class="stepper-container" style="height:48px;">
+              <button type="button" class="stepper-btn" id="modalQtyMinus">
+                <i data-lucide="minus"></i>
+              </button>
+              <input type="number" id="inputItemQty" class="stepper-value-input" value="1" min="1" step="1">
+              <button type="button" class="stepper-btn" id="modalQtyPlus">
+                <i data-lucide="plus"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- F-04: Komparator Harga Realtime vs Bulan Lalu Live Preview -->
+        <div class="live-comparator-card" id="modalComparatorBox">
+          <div class="live-comparator-info">
+            <div class="comparator-title">Perbandingan vs Bulan Lalu:</div>
+            <div id="modalComparatorText" style="font-size:0.85rem; font-weight:700; color:var(--text-secondary);">
+              Ketik nama dan harga untuk komparasi
+            </div>
+          </div>
+          <div class="comparator-pill badge-new" id="modalComparatorBadge">
+            <i data-lucide="sparkles" style="width:13px; height:13px;"></i>
+            <span id="modalComparatorBadgeText">Item Baru</span>
+          </div>
+        </div>
+
+        <!-- F-03: Kalkulator Diskon Bertingkat & Tunggal -->
+        <div class="discount-calc-card">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <label class="form-label" style="color:#fcd34d; display:flex; align-items:center; gap:4px;">
+              <i data-lucide="tag" style="width:14px; height:14px;"></i>
+              Diskon Promosi Supermarket (F-03):
+            </label>
+            <span style="font-size:0.7rem; color:var(--text-muted);">Bisa tunggal / bertingkat</span>
+          </div>
+
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="inputItemDiscount" class="form-input-text" placeholder="Contoh: 25% atau 50% + 20%" style="flex:1;">
+            <select id="selectDiscountType" style="background:var(--bg-app); border:1px solid var(--border-medium); border-radius:var(--radius-md); padding:0 8px; font-size:0.8rem; color:#fff;">
+              <option value="percent">Persen (%)</option>
+              <option value="nominal">Nominal (Rp)</option>
+            </select>
+          </div>
+
+          <!-- Quick Discount Buttons -->
+          <div style="display:flex; gap:5px; flex-wrap:wrap;">
+            <button type="button" class="preset-chip btn-discount-preset" data-disc="10">10%</button>
+            <button type="button" class="preset-chip btn-discount-preset" data-disc="20">20%</button>
+            <button type="button" class="preset-chip btn-discount-preset" data-disc="30">30%</button>
+            <button type="button" class="preset-chip btn-discount-preset" data-disc="50">50%</button>
+            <button type="button" class="preset-chip btn-discount-preset" data-disc="50+20">50% + 20%</button>
+            <button type="button" class="preset-chip btn-discount-preset" data-disc="70">70%</button>
+            <button type="button" class="preset-chip btn-discount-preset" data-disc="" style="color:var(--text-muted);">Reset</button>
+          </div>
+
+          <!-- Formula & Effective Savings Result -->
+          <div class="discount-calc-preview" id="discountCalcPreview">
+            Tanpa diskon. Harga bersih: Rp 0
+          </div>
+        </div>
+
+        <!-- Catatan Tambahan (Opsional) -->
+        <div class="form-field">
+          <label class="form-label" for="inputItemNote">Catatan / Merek (Opsional):</label>
+          <input type="text" id="inputItemNote" class="form-input-text" placeholder="Contoh: Beli merek promo, stok 2 minggu">
+        </div>
+
+        <!-- F-02: Total Subtotal Baris Item Live Preview -->
+        <div style="background:var(--bg-app); padding:12px 14px; border-radius:var(--radius-md); border:1px solid var(--border-subtle); display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <div style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Total Baris Item:</div>
+            <div id="modalRowFormula" style="font-size:0.74rem; color:var(--text-secondary);">1 pcs × Rp 0</div>
+          </div>
+          <div style="font-family:var(--font-display); font-size:1.45rem; font-weight:800; color:#10b981;" id="modalRowSubtotal">
+            Rp 0
+          </div>
+        </div>
+
+        <button type="submit" class="btn-submit-modal" id="btnSubmitItemForm">
+          <span id="btnSubmitItemText">Masukkan ke Troli Belanja</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL: STRUK CHECKOUT BELANJA DIGITAL (F-06)
+       ======================================================================== -->
+  <div class="modal-backdrop" id="checkoutModalBackdrop">
+    <div class="modal-sheet" style="max-height:92vh;">
+      <div class="modal-handle-bar"></div>
+      <div class="modal-sheet-header">
+        <h3 class="modal-title">Struk Belanja Selesai</h3>
+        <button class="modal-close-btn" id="btnCloseCheckoutModal">
+          <i data-lucide="x" style="width:20px; height:20px;"></i>
+        </button>
+      </div>
+
+      <div class="modal-sheet-content" style="gap:14px;">
+        <div class="digital-receipt-box">
+          <div class="receipt-header">
+            <h3>SUPERMARKET MR. RIAN</h3>
+            <p>Smart Grocery & Budget Safety Tracker</p>
+            <p id="receiptDateString">07 Oktober 2026 • 11:30</p>
+          </div>
+
+          <div class="receipt-items-list" id="receiptItemsContainer">
+            <!-- List items -->
+          </div>
+
+          <div class="receipt-totals">
+            <div class="receipt-total-row">
+              <span>Subtotal Harga Asli:</span>
+              <span id="receiptOriginalTotal">Rp 0</span>
+            </div>
+            <div class="receipt-total-row receipt-savings-highlight">
+              <span>Total Hemat Diskon:</span>
+              <span id="receiptTotalSavings">-Rp 0</span>
+            </div>
+            <div class="receipt-total-row grand">
+              <span>TOTAL BAYAR KASIR:</span>
+              <span id="receiptGrandTotal">Rp 0</span>
+            </div>
+          </div>
+
+          <div style="margin-top:12px; padding-top:10px; border-top:1px dashed #cbd5e1; font-size:0.75rem; text-align:center; color:#64748b;" id="receiptBudgetVerdict">
+            Status Anggaran: ZONA AMAN (Sisa Rp 120.000)
+          </div>
+        </div>
+
+        <div style="background:rgba(99, 102, 241, 0.1); border:1px solid rgba(99, 102, 241, 0.25); border-radius:var(--radius-md); padding:10px 14px; font-size:0.78rem; color:var(--text-secondary); line-height:1.4;">
+          <strong style="color:#fff;">Otomatisasi Bulan Depan:</strong><br>
+          Menyimpan sesi ini akan memperbarui <em>Database Patokan Harga</em> sehingga bulan berikutnya Anda langsung tahu jika harga barang-barang ini naik atau turun!
+        </div>
+
+        <button class="btn-checkout" id="btnConfirmSaveReceipt" style="width:100%;">
+          <i data-lucide="check"></i>
+          <span>Simpan ke Riwayat & Tutup Belanja</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL: ATUR CEPAT BATAS ANGGARAN (F-05)
+       ======================================================================== -->
+  <div class="modal-backdrop" id="budgetModalBackdrop">
+    <div class="modal-sheet">
+      <div class="modal-handle-bar"></div>
+      <div class="modal-sheet-header">
+        <h3 class="modal-title">Ubah Batas Dompet (Safety Cap)</h3>
+        <button class="modal-close-btn" id="btnCloseBudgetModal">
+          <i data-lucide="x" style="width:20px; height:20px;"></i>
+        </button>
+      </div>
+
+      <div class="modal-sheet-content">
+        <p style="font-size:0.82rem; color:var(--text-secondary);">
+          Tentukan uang maksimal yang boleh dihabiskan saat mendorong troli bulan ini. Aplikasi akan menyala merah jika total melebihi limit ini!
+        </p>
+
+        <div class="form-field">
+          <label class="form-label">Batas Anggaran (Rp):</label>
+          <div class="input-with-prefix">
+            <span class="input-prefix">Rp</span>
+            <input type="number" id="inputModalBudget" class="input-currency-large" placeholder="500000" inputmode="numeric">
+          </div>
+        </div>
+
+        <div class="budget-preset-chips">
+          <button class="preset-chip" data-preset="350000">Rp 350.000 (Hemat Kos)</button>
+          <button class="preset-chip" data-preset="500000">Rp 500.000 (Standar)</button>
+          <button class="preset-chip" data-preset="750000">Rp 750.000 (Lengkap)</button>
+          <button class="preset-chip" data-preset="1000000">Rp 1.000.000 (Penuh)</button>
+        </div>
+
+        <button class="btn-submit-modal" id="btnSaveModalBudget">
+          Simpan Batas Anggaran
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL: TAMBAH / EDIT PATOKAN HARGA DATABASE (F-04 / F-06)
+       ======================================================================== -->
+  <div class="modal-backdrop" id="dbItemModalBackdrop">
+    <div class="modal-sheet">
+      <div class="modal-handle-bar"></div>
+      <div class="modal-sheet-header">
+        <h3 class="modal-title" id="dbItemModalTitle">Tambah Patokan Harga</h3>
+        <button class="modal-close-btn" id="btnCloseDbItemModal">
+          <i data-lucide="x" style="width:20px; height:20px;"></i>
+        </button>
+      </div>
+
+      <form id="dbItemForm" class="modal-sheet-content">
+        <div class="form-field">
+          <label class="form-label" for="inputDbName">Nama Barang Patokan:</label>
+          <input type="text" id="inputDbName" class="form-input-text" placeholder="Contoh: Beras Ramos 5kg" required>
+        </div>
+        <div class="form-field">
+          <label class="form-label" for="inputDbPrice">Harga Bulan Lalu (Rp):</label>
+          <input type="number" id="inputDbPrice" class="form-input-text" placeholder="Contoh: 72000" required>
+        </div>
+        <div class="form-field">
+          <label class="form-label" for="inputDbUnit">Satuan:</label>
+          <input type="text" id="inputDbUnit" class="form-input-text" placeholder="pack / kg / pcs" value="pcs">
+        </div>
+        <button type="submit" class="btn-submit-modal">Simpan Patokan</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================
+       MODAL: PENGATURAN KONEKSI FIREBASE CLOUD FIRESTORE
+       ======================================================================== -->
+  <div class="modal-backdrop" id="firebaseModalBackdrop">
+    <div class="modal-sheet" style="max-height:92vh;">
+      <div class="modal-handle-bar"></div>
+      <div class="modal-sheet-header">
+        <h3 class="modal-title" style="display:flex; align-items:center; gap:6px;">
+          <i data-lucide="cloud" style="color:#f59e0b;"></i>
+          <span>Koneksi Cloud Firestore</span>
+        </h3>
+        <button class="modal-close-btn" id="btnCloseFirebaseModal">
+          <i data-lucide="x" style="width:20px; height:20px;"></i>
+        </button>
+      </div>
+
+      <div class="modal-sheet-content">
+        <div style="background:rgba(245, 158, 11, 0.1); border:1px solid rgba(245, 158, 11, 0.25); border-radius:var(--radius-md); padding:10px 14px; font-size:0.78rem; color:var(--text-secondary); line-height:1.4;">
+          <strong style="color:#fff;">Project Terhubung:</strong> groceriesmrrian<br>
+          <strong style="color:#fff;">Database:</strong> (default)<br>
+          <a href="https://console.firebase.google.com/u/0/project/groceriesmrrian/firestore/databases/-default-/data" target="_blank" style="color:#fcd34d; font-weight:600; text-decoration:none;">Buka Google Firebase Console ↗</a>
+        </div>
+
+        <form id="firebaseConfigForm" style="display:flex; flex-direction:column; gap:12px;">
+          <div class="form-field">
+            <label class="form-label" for="inputFbApiKey">Web API Key (dari Project Settings):</label>
+            <input type="text" id="inputFbApiKey" class="form-input-text" placeholder="Contoh: AIzaSyD..." autocomplete="off">
+            <span style="font-size:0.7rem; color:var(--text-muted);">Didapat dari: Firebase Console > Project Settings > General > Web API Key</span>
+          </div>
+
+          <div class="form-field">
+            <label class="form-label" for="inputFbAppId">App ID (Opsional):</label>
+            <input type="text" id="inputFbAppId" class="form-input-text" placeholder="Contoh: 1:123456789:web:abcdef" autocomplete="off">
+          </div>
+
+          <div class="form-field">
+            <label class="form-label" for="inputFbRawConfig">Atau Paste Objek firebaseConfig Lengkap:</label>
+            <textarea id="inputFbRawConfig" class="form-input-text" rows="3" placeholder='const firebaseConfig = { apiKey: "...", ... };' style="font-family:monospace; font-size:0.75rem;"></textarea>
+          </div>
+
+          <button type="submit" class="btn-submit-modal" style="background:linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+            Simpan Konfigurasi & Uji Koneksi
+          </button>
+        </form>
+
+        <div style="border-top:1px solid var(--border-subtle); padding-top:12px; display:flex; flex-direction:column; gap:8px;">
+          <button class="btn-secondary-sm" id="btnQuickUploadAllFirestore" style="height:44px; background:var(--color-primary); color:#fff;">
+            <i data-lucide="cloud-lightning" style="width:16px; height:16px;"></i> Sinkronkan Semua Data Sekarang
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION CONTAINER -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Main JavaScript App Entry -->
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
