@@ -20,8 +20,7 @@ const state = {
   history: [],
   priceDB: {},
   currentTab: 'view-shopping',
-  editingItemId: null,
-  deferredPwaPrompt: null
+  editingItemId: null
 };
 
 // ==========================================================================
@@ -42,7 +41,6 @@ function initApp() {
   setupItemModal();
   setupCheckoutModal();
   setupBudgetView();
-  setupPwa();
   startLiveClock();
 
   // 3. Render Seluruh Tampilan Awal
@@ -50,17 +48,6 @@ function initApp() {
 
   // 4. Hubungkan Sinkronisasi Otomatis Real-Time (onSnapshot)
   setupRealtimeSync();
-
-  // 5. Daftarkan Service Worker untuk PWA Offline Mode
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js').then((reg) => {
-        console.log('PWA ServiceWorker registered with scope:', reg.scope);
-      }).catch((err) => {
-        console.warn('PWA ServiceWorker registration failed:', err);
-      });
-    });
-  }
 }
 
 // Refresh Lucide Icons saat DOM diperbarui
@@ -522,11 +509,6 @@ function setupHeaderControls() {
       }
     });
   });
-
-  // Help / PWA Info Modal
-  document.getElementById('btnHelpPwa').addEventListener('click', () => {
-    showToast('Aplikasi PWA Siap! Sinkronisasi otomatis ke Cloud Firestore aktif.', 'success');
-  });
 }
 
 // ==========================================================================
@@ -779,7 +761,8 @@ function setupItemModal() {
         unit,
         note
       };
-      state.cart.push(newItem);
+      // Menaruh barang baru langsung di urutan paling atas troli
+      state.cart.unshift(newItem);
       showToast(`"${name}" masuk ke troli!`, 'success');
     }
 
@@ -1246,34 +1229,7 @@ function setupBudgetView() {
   });
 }
 
-// ==========================================================================
-// PWA INSTALLATION & UTILS
-// ==========================================================================
 
-function setupPwa() {
-  const pwaBanner = document.getElementById('pwaInstallBanner');
-  const btnInstall = document.getElementById('btnInstallPwa');
-
-  window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    state.deferredPwaPrompt = e;
-    pwaBanner.style.display = 'flex';
-  });
-
-  btnInstall.addEventListener('click', async () => {
-    if (!state.deferredPwaPrompt) {
-      showToast('Buka menu browser dan pilih "Add to Home screen" / "Install"', 'warning');
-      return;
-    }
-    state.deferredPwaPrompt.prompt();
-    const { outcome } = await state.deferredPwaPrompt.userChoice;
-    if (outcome === 'accepted') {
-      pwaBanner.style.display = 'none';
-      showToast('Aplikasi berhasil dipasang ke beranda!', 'success');
-    }
-    state.deferredPwaPrompt = null;
-  });
-}
 
 function startLiveClock() {
   const clockEl = document.getElementById('liveClock');

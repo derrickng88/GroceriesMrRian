@@ -37,7 +37,7 @@
           <div class="notch-dot"></div>
         </div>
         <div style="display:flex; align-items:center; gap:6px;">
-          <span style="font-size:0.68rem; color:#10b981; font-weight:700;">4G • PWA</span>
+          <span style="font-size:0.68rem; color:#10b981; font-weight:700;">4G LTE</span>
           <i data-lucide="wifi" style="width:13px; height:13px;"></i>
           <i data-lucide="battery-charging" style="width:14px; height:14px; color:#10b981;"></i>
         </div>
@@ -62,9 +62,6 @@
             </div>
             <button class="icon-btn-header" id="btnOpenBudgetModal" title="Atur Batas Anggaran">
               <i data-lucide="sliders-horizontal" style="width:18px; height:18px;"></i>
-            </button>
-            <button class="icon-btn-header" id="btnHelpPwa" title="Panduan & Mode PWA">
-              <i data-lucide="info" style="width:18px; height:18px;"></i>
             </button>
           </div>
         </div>
@@ -110,14 +107,7 @@
         <!-- TAB 1: BELANJA (Active Shopping Trolley View) -->
         <article id="view-shopping" class="view-section active">
           
-          <!-- PWA Install Banner (If available) -->
-          <div class="pwa-install-banner" id="pwaInstallBanner" style="display:none;">
-            <div class="pwa-banner-text">
-              <strong>Pasang Aplikasi (PWA)</strong><br>
-              Akses cepat satu tap di beranda smartphone tanpa internet saat belanja!
-            </div>
-            <button class="btn-pwa-install" id="btnInstallPwa">Pasang</button>
-          </div>
+
 
           <div class="cart-summary-banner">
             <div class="cart-count-badge">
@@ -285,9 +275,8 @@
       </section>
 
       <!-- FLOATING QUICK ADD BUTTON (FAB) FOR TROLLEY SHOPPING -->
-      <button class="fab-quick-add" id="fabQuickAdd" title="Tambah Barang Belanjaan Baru">
+      <button class="fab-quick-add" id="fabQuickAdd" title="Tambah Barang" aria-label="Tambah Barang">
         <i data-lucide="plus"></i>
-        <span>Tambah Barang</span>
       </button>
 
       <!-- FLOATING BOTTOM NAVIGATION BAR (Requirement #2) -->
