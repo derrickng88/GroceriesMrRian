@@ -1,4 +1,5 @@
 // Firebase & Cloud Firestore Integration Module for groceriesmrrian
+// Direct Backend Real-Time onSnapshot Integration
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { 
@@ -6,267 +7,193 @@ import {
   collection, 
   doc, 
   setDoc, 
-  getDocs, 
   deleteDoc,
-  writeBatch,
-  serverTimestamp 
+  serverTimestamp,
+  onSnapshot
 } from 'firebase/firestore';
 
-const FIREBASE_CONFIG_KEY = 'smart_grocery_firebase_config_v1';
+export const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAo4plASM883EG8KIP30S5fX0gVgQRLenM",
+  authDomain: "groceriesmrrian.firebaseapp.com",
+  projectId: "groceriesmrrian",
+  storageBucket: "groceriesmrrian.firebasestorage.app",
+  messagingSenderId: "48991159633",
+  appId: "1:48991159633:web:a04b23365de729e22eff70"
+};
 
-// Default base config for project groceriesmrrian
-export const DEFAULT_PROJECT_ID = 'groceriesmrrian';
-export const DEFAULT_DATABASE_URL = 'https://console.firebase.google.com/u/0/project/groceriesmrrian/firestore/databases/-default-/data';
+// Inisialisasi Firebase App & Firestore Singleton secara otomatis di backend
+const firebaseApp = getApps().length > 0 ? getApp() : initializeApp(FIREBASE_CONFIG);
+const firestoreDb = getFirestore(firebaseApp);
 
-let firebaseApp = null;
-let firestoreDb = null;
-
-/**
- * Ambil konfigurasi tersimpan atau default
- */
-export function getSavedFirebaseConfig() {
-  try {
-    const raw = localStorage.getItem(FIREBASE_CONFIG_KEY);
-    if (raw) {
-      return JSON.parse(raw);
-    }
-  } catch (e) {
-    console.warn('Error reading saved firebase config:', e);
-  }
-
-  // Fallback template untuk project groceriesmrrian
-  return {
-    projectId: DEFAULT_PROJECT_ID,
-    authDomain: `${DEFAULT_PROJECT_ID}.firebaseapp.com`,
-    storageBucket: `${DEFAULT_PROJECT_ID}.firebasestorage.app`,
-    apiKey: '',
-    appId: ''
-  };
+export function getDb() {
+  return firestoreDb;
 }
 
 /**
- * Simpan konfigurasi ke LocalStorage
+ * 1. REALTIME CART LISTENER (onSnapshot)
+ * Mendengarkan perubahan barang di troli secara langsung dari perangkat manapun
+ * @param {Function} callback - Menerima array items terbaru
  */
-export function saveFirebaseConfig(config) {
-  try {
-    localStorage.setItem(FIREBASE_CONFIG_KEY, JSON.stringify(config));
-    return initFirebase(config);
-  } catch (e) {
-    console.error('Error saving firebase config:', e);
-    return { success: false, error: e.message };
-  }
+export function subscribeToCart(callback, onError = null) {
+  const docRef = doc(firestoreDb, 'active_cart', 'current');
+  return onSnapshot(docRef, (snap) => {
+    if (snap.exists()) {
+      const data = snap.data();
+      if (Array.isArray(data.items)) {
+        callback(data.items);
+      }
+    }
+  }, (err) => {
+    console.warn('onSnapshot active_cart error:', err);
+    if (onError) onError(err);
+  });
 }
 
 /**
- * Inisialisasi Firebase App & Firestore instance
+ * Simpan seluruh daftar troli belanja ke Firestore (Real-Time Push)
+ * @param {Array} items
  */
-export function initFirebase(config = null) {
-  const cfg = config || getSavedFirebaseConfig();
-
-  if (!cfg || !cfg.projectId) {
-    return { success: false, error: 'Project ID belum diisi' };
-  }
-
+export async function saveCartToFirestore(items) {
   try {
-    // Jika app sudah ada, gunakan yang sudah ada atau buat ulang jika config berubah
-    if (getApps().length > 0) {
-      firebaseApp = getApp();
-    } else {
-      // Inisialisasi Firebase App
-      firebaseApp = initializeApp(cfg);
-    }
-
-    firestoreDb = getFirestore(firebaseApp);
-    return { success: true, app: firebaseApp, db: firestoreDb };
+    const docRef = doc(firestoreDb, 'active_cart', 'current');
+    await setDoc(docRef, {
+      updatedAt: serverTimestamp(),
+      itemCount: items.length,
+      items: items
+    });
+    return { success: true };
   } catch (err) {
-    console.error('Firebase initialization error:', err);
+    console.error('Gagal menyimpan troli ke Firestore:', err);
     return { success: false, error: err.message };
   }
 }
 
 /**
- * Cek apakah Firebase sudah siap digunakan
+ * 2. REALTIME BUDGET LISTENER (onSnapshot)
+ * Mendengarkan perubahan batas dompet belanja (Safety Cap)
+ * @param {Function} callback - Menerima nilai batas budget (number)
  */
-export function isFirebaseReady() {
-  if (!firestoreDb) {
-    const res = initFirebase();
-    return res.success && !!firestoreDb;
-  }
-  return true;
-}
-
-/**
- * 1. Upload Keranjang Belanja Aktif ke Firestore
- * Koleksi: `trolley_items`
- */
-export async function syncCartToFirestore(cartItems) {
-  if (!isFirebaseReady()) throw new Error('Firebase belum terkonfigurasi');
-  
-  const batch = writeBatch(firestoreDb);
-  const cartCol = collection(firestoreDb, 'trolley_items');
-
-  // Bersihkan dan masukkan ulang item aktif
-  // Atau simpan ke satu dokumen aktif `active_cart`
-  const activeCartDoc = doc(firestoreDb, 'active_cart', 'current');
-  batch.set(activeCartDoc, {
-    updatedAt: serverTimestamp(),
-    itemCount: cartItems.length,
-    items: cartItems
+export function subscribeToBudget(callback, onError = null) {
+  const docRef = doc(firestoreDb, 'settings', 'budget');
+  return onSnapshot(docRef, (snap) => {
+    if (snap.exists()) {
+      const data = snap.data();
+      if (data.budgetLimit !== undefined) {
+        callback(Number(data.budgetLimit));
+      }
+    }
+  }, (err) => {
+    console.warn('onSnapshot settings/budget error:', err);
+    if (onError) onError(err);
   });
-
-  await batch.commit();
-  return { success: true, count: cartItems.length };
 }
 
 /**
- * 2. Upload Riwayat Belanja ke Firestore
- * Koleksi: `shopping_history`
+ * Simpan batas dompet belanja ke Firestore
+ * @param {number} budgetLimit
  */
-export async function syncHistoryToFirestore(historyList) {
-  if (!isFirebaseReady()) throw new Error('Firebase belum terkonfigurasi');
+export async function saveBudgetToFirestore(budgetLimit) {
+  try {
+    const docRef = doc(firestoreDb, 'settings', 'budget');
+    await setDoc(docRef, {
+      budgetLimit: Number(budgetLimit),
+      updatedAt: serverTimestamp()
+    });
+    return { success: true };
+  } catch (err) {
+    console.error('Gagal menyimpan batas budget ke Firestore:', err);
+    return { success: false, error: err.message };
+  }
+}
 
-  const batch = writeBatch(firestoreDb);
+/**
+ * 3. REALTIME HISTORY LISTENER (onSnapshot)
+ * Mendengarkan daftar riwayat transaksi belanja kasir
+ * @param {Function} callback - Menerima array histori transaksi terbaru
+ */
+export function subscribeToHistory(callback, onError = null) {
+  const colRef = collection(firestoreDb, 'shopping_history');
+  return onSnapshot(colRef, (snap) => {
+    const list = [];
+    snap.forEach((d) => {
+      list.push({ id: d.id, ...d.data() });
+    });
+    // Urutkan transaksi dari yang terbaru
+    list.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+    callback(list);
+  }, (err) => {
+    console.warn('onSnapshot shopping_history error:', err);
+    if (onError) onError(err);
+  });
+}
 
-  for (const item of historyList) {
-    const docRef = doc(firestoreDb, 'shopping_history', item.id);
-    batch.set(docRef, {
-      ...item,
+/**
+ * Simpan riwayat transaksi baru ke Firestore
+ * @param {Object} entry
+ */
+export async function saveHistoryEntryToFirestore(entry) {
+  try {
+    const docRef = doc(firestoreDb, 'shopping_history', entry.id);
+    await setDoc(docRef, {
+      ...entry,
       syncedAt: serverTimestamp()
     });
+    return { success: true };
+  } catch (err) {
+    console.error('Gagal menyimpan riwayat transaksi ke Firestore:', err);
+    return { success: false, error: err.message };
   }
-
-  await batch.commit();
-  return { success: true, count: historyList.length };
 }
 
 /**
- * 3. Upload Database Patokan Harga ke Firestore
- * Koleksi: `price_database`
+ * Hapus transaksi riwayat dari Firestore
+ * @param {string} id
  */
-export async function syncPriceDBToFirestore(priceDB) {
-  if (!isFirebaseReady()) throw new Error('Firebase belum terkonfigurasi');
-
-  const batch = writeBatch(firestoreDb);
-
-  // Simpan kumpulan harga ke dokumen `catalog/all` dan individual docs
-  const catalogDoc = doc(firestoreDb, 'price_database', 'all_items');
-  batch.set(catalogDoc, {
-    updatedAt: serverTimestamp(),
-    items: priceDB
-  });
-
-  await batch.commit();
-  return { success: true };
-}
-
-/**
- * 4. Upload Pengaturan Anggaran ke Firestore
- * Koleksi: `settings/budget`
- */
-export async function syncBudgetToFirestore(budgetLimit) {
-  if (!isFirebaseReady()) throw new Error('Firebase belum terkonfigurasi');
-
-  const budgetDoc = doc(firestoreDb, 'settings', 'budget');
-  await setDoc(budgetDoc, {
-    budgetLimit: Number(budgetLimit),
-    updatedAt: serverTimestamp()
-  });
-
-  return { success: true };
-}
-
-/**
- * SINKRONISASI LENGKAP SEMUA DATA KE FIRESTORE (Push All)
- */
-export async function syncAllToFirestore(data) {
-  if (!isFirebaseReady()) {
-    throw new Error('Firebase belum terinisialisasi. Pastikan API Key telah diisi.');
-  }
-
-  const results = {};
-
-  // Sync Cart
-  if (data.cart) {
-    results.cart = await syncCartToFirestore(data.cart);
-  }
-
-  // Sync History
-  if (data.history) {
-    results.history = await syncHistoryToFirestore(data.history);
-  }
-
-  // Sync Price DB
-  if (data.priceDB) {
-    results.priceDB = await syncPriceDBToFirestore(data.priceDB);
-  }
-
-  // Sync Budget
-  if (data.budget) {
-    results.budget = await syncBudgetToFirestore(data.budget);
-  }
-
-  return { success: true, results };
-}
-
-/**
- * TARIK SEMUA DATA DARI FIRESTORE (Pull All)
- */
-export async function pullAllFromFirestore() {
-  if (!isFirebaseReady()) {
-    throw new Error('Firebase belum terinisialisasi.');
-  }
-
-  const pulled = {};
-
-  // Pull Active Cart
+export async function deleteHistoryFromFirestore(id) {
   try {
-    const cartSnapshot = await getDocs(collection(firestoreDb, 'active_cart'));
-    cartSnapshot.forEach((docSnap) => {
-      if (docSnap.id === 'current' && docSnap.data().items) {
-        pulled.cart = docSnap.data().items;
+    const docRef = doc(firestoreDb, 'shopping_history', id);
+    await deleteDoc(docRef);
+    return { success: true };
+  } catch (err) {
+    console.error('Gagal menghapus riwayat dari Firestore:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * 4. REALTIME PRICE DB LISTENER (onSnapshot)
+ * Mendengarkan database patokan harga supermarket
+ * @param {Function} callback - Menerima objek patokan harga { "beras ramos": { ... } }
+ */
+export function subscribeToPriceDB(callback, onError = null) {
+  const docRef = doc(firestoreDb, 'price_database', 'all_items');
+  return onSnapshot(docRef, (snap) => {
+    if (snap.exists()) {
+      const data = snap.data();
+      if (data.items) {
+        callback(data.items);
       }
-    });
-  } catch (e) {
-    console.warn('Gagal menarik troli dari firestore:', e);
-  }
-
-  // Pull History
-  try {
-    const histSnapshot = await getDocs(collection(firestoreDb, 'shopping_history'));
-    const histList = [];
-    histSnapshot.forEach((docSnap) => {
-      histList.push({ id: docSnap.id, ...docSnap.data() });
-    });
-    if (histList.length > 0) {
-      pulled.history = histList;
     }
-  } catch (e) {
-    console.warn('Gagal menarik riwayat dari firestore:', e);
-  }
+  }, (err) => {
+    console.warn('onSnapshot price_database error:', err);
+    if (onError) onError(err);
+  });
+}
 
-  // Pull Price DB
+/**
+ * Simpan database patokan harga ke Firestore
+ * @param {Object} priceDB
+ */
+export async function savePriceDBToFirestore(priceDB) {
   try {
-    const priceDoc = await getDocs(collection(firestoreDb, 'price_database'));
-    priceDoc.forEach((docSnap) => {
-      if (docSnap.id === 'all_items' && docSnap.data().items) {
-        pulled.priceDB = docSnap.data().items;
-      }
+    const docRef = doc(firestoreDb, 'price_database', 'all_items');
+    await setDoc(docRef, {
+      updatedAt: serverTimestamp(),
+      items: priceDB
     });
-  } catch (e) {
-    console.warn('Gagal menarik database harga dari firestore:', e);
+    return { success: true };
+  } catch (err) {
+    console.error('Gagal menyimpan database patokan harga ke Firestore:', err);
+    return { success: false, error: err.message };
   }
-
-  // Pull Budget Setting
-  try {
-    const budgetDoc = await getDocs(collection(firestoreDb, 'settings'));
-    budgetDoc.forEach((docSnap) => {
-      if (docSnap.id === 'budget' && docSnap.data().budgetLimit) {
-        pulled.budget = docSnap.data().budgetLimit;
-      }
-    });
-  } catch (e) {
-    console.warn('Gagal menarik anggaran dari firestore:', e);
-  }
-
-  return pulled;
 }

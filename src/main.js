@@ -2,13 +2,15 @@ import { createIcons, icons } from 'lucide';
 import { formatRp, parseRp, calculateDiscount, comparePrice, getBudgetStatus } from './math.js';
 import { storage, CATEGORIES, COMMON_UNITS, normalizeProductName } from './storage.js';
 import { 
-  getSavedFirebaseConfig, 
-  saveFirebaseConfig, 
-  initFirebase, 
-  isFirebaseReady, 
-  syncAllToFirestore, 
-  pullAllFromFirestore,
-  DEFAULT_PROJECT_ID 
+  subscribeToCart, 
+  saveCartToFirestore, 
+  subscribeToBudget, 
+  saveBudgetToFirestore, 
+  subscribeToHistory, 
+  saveHistoryEntryToFirestore, 
+  deleteHistoryFromFirestore, 
+  subscribeToPriceDB, 
+  savePriceDBToFirestore 
 } from './firebase.js';
 
 // Application State
@@ -27,27 +29,29 @@ const state = {
 // ==========================================================================
 
 function initApp() {
-  // Load state from local storage
+  // 1. Muat state awal dari LocalStorage untuk instant-render tanpa jeda
   state.cart = storage.getCart();
   state.budgetLimit = storage.getBudget();
   state.history = storage.getHistory();
   state.priceDB = storage.getPriceDB();
 
-  // Setup DOM Event Listeners
+  // 2. Setup Event Listeners DOM
   setupNavigation();
   setupHeaderControls();
   setupCartEvents();
   setupItemModal();
   setupCheckoutModal();
   setupBudgetView();
-  setupFirebaseControls();
   setupPwa();
   startLiveClock();
 
-  // Render All Views
+  // 3. Render Seluruh Tampilan Awal
   renderAll();
 
-  // Register Service Worker for PWA
+  // 4. Hubungkan Sinkronisasi Otomatis Real-Time (onSnapshot)
+  setupRealtimeSync();
+
+  // 5. Daftarkan Service Worker untuk PWA Offline Mode
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('/sw.js').then((reg) => {
@@ -59,9 +63,75 @@ function initApp() {
   }
 }
 
-// Refresh Lucide Icons whenever DOM updates
+// Refresh Lucide Icons saat DOM diperbarui
 function refreshIcons() {
   createIcons({ icons });
+}
+
+// ==========================================================================
+// REAL-TIME FIRESTORE MULTI-DEVICE SYNC (onSnapshot)
+// ==========================================================================
+
+function setupRealtimeSync() {
+  // 1. Live Trolley Cart Sync (Perubahan di HP langsung muncul di Laptop dan sebaliknya)
+  subscribeToCart((cloudItems) => {
+    const currentJson = JSON.stringify(state.cart);
+    const cloudJson = JSON.stringify(cloudItems);
+
+    if (currentJson !== cloudJson) {
+      state.cart = cloudItems;
+      storage.saveCart(cloudItems);
+      renderSafetyBudgetHeader();
+      renderCartList();
+      refreshIcons();
+    }
+  });
+
+  // 2. Live Safety Cap Budget Limit Sync
+  subscribeToBudget((cloudBudget) => {
+    if (cloudBudget && cloudBudget !== state.budgetLimit) {
+      state.budgetLimit = cloudBudget;
+      storage.saveBudget(cloudBudget);
+
+      const inputBudgetSetting = document.getElementById('inputBudgetSetting');
+      if (inputBudgetSetting && document.activeElement !== inputBudgetSetting) {
+        inputBudgetSetting.value = cloudBudget;
+      }
+      const inputModalBudget = document.getElementById('inputModalBudget');
+      if (inputModalBudget && document.activeElement !== inputModalBudget) {
+        inputModalBudget.value = cloudBudget;
+      }
+
+      renderSafetyBudgetHeader();
+    }
+  });
+
+  // 3. Live Shopping History Sync
+  subscribeToHistory((cloudHistory) => {
+    const currentJson = JSON.stringify(state.history);
+    const cloudJson = JSON.stringify(cloudHistory);
+
+    if (currentJson !== cloudJson) {
+      state.history = cloudHistory;
+      storage.saveHistory(cloudHistory);
+      renderHistoryList();
+      refreshIcons();
+    }
+  });
+
+  // 4. Live Reference Price Database Sync
+  subscribeToPriceDB((cloudPriceDB) => {
+    const currentJson = JSON.stringify(state.priceDB);
+    const cloudJson = JSON.stringify(cloudPriceDB);
+
+    if (currentJson !== cloudJson) {
+      state.priceDB = cloudPriceDB;
+      storage.savePriceDB(cloudPriceDB);
+      renderDbItemsList();
+      renderCartList();
+      refreshIcons();
+    }
+  });
 }
 
 // ==========================================================================
@@ -438,7 +508,8 @@ function setupHeaderControls() {
       storage.saveBudget(val);
       renderSafetyBudgetHeader();
       budgetModalBackdrop.classList.remove('active');
-      showToast('Batas anggaran berhasil diperbarui!', 'success');
+      saveBudgetToFirestore(val); // Push ke Firestore
+      showToast('Batas anggaran berhasil diperbarui & disinkronkan!', 'success');
     }
   });
 
@@ -454,7 +525,7 @@ function setupHeaderControls() {
 
   // Help / PWA Info Modal
   document.getElementById('btnHelpPwa').addEventListener('click', () => {
-    showToast('Aplikasi PWA Siap! Tambahkan ke Home Screen untuk mode offline.', 'success');
+    showToast('Aplikasi PWA Siap! Sinkronisasi otomatis ke Cloud Firestore aktif.', 'success');
   });
 }
 
@@ -502,6 +573,7 @@ function setupCartEvents() {
       state.cart = [];
       storage.saveCart(state.cart);
       renderAll();
+      saveCartToFirestore([]); // Sinkronkan pengosongan ke Firestore
       showToast('Troli telah dikosongkan.', 'warning');
     }
   });
@@ -527,6 +599,7 @@ function updateCartItemQty(id, delta) {
     item.qty = newQty;
     storage.saveCart(state.cart);
     renderAll();
+    saveCartToFirestore(state.cart); // Sinkronkan perubahan kuantitas seketika ke Firestore
   }
 }
 
@@ -536,12 +609,14 @@ function setCartItemQty(id, exactQty) {
   item.qty = Math.max(1, exactQty);
   storage.saveCart(state.cart);
   renderAll();
+  saveCartToFirestore(state.cart); // Sinkronkan perubahan kuantitas seketika ke Firestore
 }
 
 function deleteCartItem(id) {
   state.cart = state.cart.filter(it => it.id !== id);
   storage.saveCart(state.cart);
   renderAll();
+  saveCartToFirestore(state.cart); // Sinkronkan penghapusan ke Firestore
   showToast('Barang dihapus dari troli', 'warning');
 }
 
@@ -711,6 +786,9 @@ function setupItemModal() {
     storage.saveCart(state.cart);
     renderAll();
     modalBackdrop.classList.remove('active');
+
+    // Real-time Push ke Firestore (Device lain langsung menerima!)
+    saveCartToFirestore(state.cart);
   });
 }
 
@@ -939,35 +1017,23 @@ function saveCheckoutToHistory() {
     items: itemsDetail
   };
 
-  // Add to history
+  // 1. Simpan ke Riwayat Lokal & Cloud Firestore
   state.history.unshift(historyEntry);
   storage.saveHistory(state.history);
+  saveHistoryEntryToFirestore(historyEntry);
 
-  // F-06: Automatically update database patokan harga for next month
+  // 2. F-06: Perbarui Database Patokan Harga Bulan Depan Secara Otomatis
   storage.updatePriceDBFromCart(state.cart);
   state.priceDB = storage.getPriceDB();
+  savePriceDBToFirestore(state.priceDB);
 
-  // Clear cart
+  // 3. Kosongkan Troli Belanja Aktif di Lokal & Cloud
   state.cart = [];
   storage.saveCart(state.cart);
+  saveCartToFirestore([]);
 
   renderAll();
   showToast('Belanja selesai disimpan & patokan harga diperbarui!', 'success');
-
-  // Auto-sync to Firebase Cloud Firestore if configured
-  if (isFirebaseReady()) {
-    syncAllToFirestore({
-      cart: state.cart,
-      history: state.history,
-      priceDB: state.priceDB,
-      budget: state.budgetLimit
-    }).then(() => {
-      showToast('☁️ Data belanja berhasil disinkronkan ke Cloud Firestore!', 'success');
-      updateCloudStatusBadge('connected');
-    }).catch(err => {
-      console.warn('Background sync failed:', err);
-    });
-  }
 }
 
 // ==========================================================================
@@ -994,6 +1060,7 @@ document.getElementById('historyListContainer').addEventListener('click', (e) =>
     if (entry && entry.items) {
       storage.updatePriceDBFromCart(entry.items);
       state.priceDB = storage.getPriceDB();
+      savePriceDBToFirestore(state.priceDB); // Push ke Firestore
       renderAll();
       showToast(`Harga dari transaksi "${entry.title}" dijadikan patokan komparator!`, 'success');
     }
@@ -1007,6 +1074,7 @@ document.getElementById('historyListContainer').addEventListener('click', (e) =>
     if (confirm('Hapus transaksi riwayat ini?')) {
       state.history = state.history.filter(h => h.id !== histId);
       storage.saveHistory(state.history);
+      deleteHistoryFromFirestore(histId); // Push penghapusan ke Firestore
       renderAll();
       showToast('Riwayat dihapus.', 'warning');
     }
@@ -1032,6 +1100,7 @@ function setupBudgetView() {
       state.budgetLimit = val;
       storage.saveBudget(val);
       renderSafetyBudgetHeader();
+      saveBudgetToFirestore(val); // Push ke Firestore
       showToast(`Batas dompet berhasil disetel ke ${formatRp(val)}!`, 'success');
     }
   });
@@ -1061,6 +1130,7 @@ function setupBudgetView() {
       delete db[key];
       storage.savePriceDB(db);
       state.priceDB = db;
+      savePriceDBToFirestore(state.priceDB); // Push ke Firestore
       renderDbItemsList(inputSearchDb.value);
       renderSafetyBudgetHeader();
       renderCartList();
@@ -1101,6 +1171,7 @@ function setupBudgetView() {
       };
       storage.savePriceDB(db);
       state.priceDB = db;
+      savePriceDBToFirestore(state.priceDB); // Push ke Firestore
       renderDbItemsList();
       renderCartList();
       dbModalBackdrop.classList.remove('active');
@@ -1139,6 +1210,13 @@ function setupBudgetView() {
         state.history = storage.getHistory();
         state.priceDB = storage.getPriceDB();
         renderAll();
+
+        // Push data restore ke Firestore
+        saveCartToFirestore(state.cart);
+        saveBudgetToFirestore(state.budgetLimit);
+        savePriceDBToFirestore(state.priceDB);
+        state.history.forEach(h => saveHistoryEntryToFirestore(h));
+
         showToast('Data berhasil dipulihkan (Restore)!', 'success');
       } else {
         showToast('Gagal memulihkan file: ' + result.error, 'danger');
@@ -1156,205 +1234,16 @@ function setupBudgetView() {
       state.history = storage.getHistory();
       state.priceDB = storage.getPriceDB();
       renderAll();
+
+      // Push default state ke Cloud Firestore
+      saveCartToFirestore(state.cart);
+      saveBudgetToFirestore(state.budgetLimit);
+      savePriceDBToFirestore(state.priceDB);
+      state.history.forEach(h => saveHistoryEntryToFirestore(h));
+
       showToast('Data dikembalikan ke pengaturan demo awal.', 'success');
     }
   });
-}
-
-// ==========================================================================
-// FIREBASE CLOUD FIRESTORE SYNC (groceriesmrrian)
-// ==========================================================================
-
-function updateCloudStatusBadge(status = 'default') {
-  const badge = document.getElementById('cloudStatusBadge');
-  if (!badge) return;
-
-  if (status === 'connected') {
-    badge.className = 'cloud-status-badge connected';
-    badge.textContent = 'Cloud Terhubung ✓';
-  } else if (status === 'syncing') {
-    badge.className = 'cloud-status-badge syncing';
-    badge.textContent = 'Menyinkronkan...';
-  } else if (status === 'error') {
-    badge.className = 'cloud-status-badge error';
-    badge.textContent = 'Koneksi Gagal';
-  } else {
-    const isReady = isFirebaseReady();
-    if (isReady) {
-      badge.className = 'cloud-status-badge connected';
-      badge.textContent = 'Cloud Terhubung ✓';
-    } else {
-      badge.className = 'cloud-status-badge';
-      badge.textContent = 'Perlu Setup Kunci';
-    }
-  }
-}
-
-function setupFirebaseControls() {
-  const btnOpenHeader = document.getElementById('btnOpenFirebaseModal');
-  const btnConfig = document.getElementById('btnConfigFirebase');
-  const modalBackdrop = document.getElementById('firebaseModalBackdrop');
-  const btnClose = document.getElementById('btnCloseFirebaseModal');
-  const form = document.getElementById('firebaseConfigForm');
-  const inputApiKey = document.getElementById('inputFbApiKey');
-  const inputAppId = document.getElementById('inputFbAppId');
-  const inputRaw = document.getElementById('inputFbRawConfig');
-  const btnSync = document.getElementById('btnSyncToCloud');
-  const btnPull = document.getElementById('btnPullFromCloud');
-  const btnQuickUpload = document.getElementById('btnQuickUploadAllFirestore');
-
-  // Pre-fill existing config
-  const currentConfig = getSavedFirebaseConfig();
-  if (currentConfig) {
-    if (currentConfig.apiKey) inputApiKey.value = currentConfig.apiKey;
-    if (currentConfig.appId) inputAppId.value = currentConfig.appId;
-  }
-
-  // Open modal
-  const openModal = () => {
-    modalBackdrop.classList.add('active');
-    refreshIcons();
-  };
-  if (btnOpenHeader) btnOpenHeader.addEventListener('click', openModal);
-  if (btnConfig) btnConfig.addEventListener('click', openModal);
-
-  // Close modal
-  if (btnClose) {
-    btnClose.addEventListener('click', () => {
-      modalBackdrop.classList.remove('active');
-    });
-  }
-
-  // Handle Form Submit
-  if (form) {
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      let apiKey = inputApiKey.value.trim();
-      let appId = inputAppId.value.trim();
-      const rawText = inputRaw.value.trim();
-
-      // Check if user pasted raw config object
-      if (rawText) {
-        const apiKeyMatch = rawText.match(/apiKey:\s*["']([^"']+)["']/);
-        const appIdMatch = rawText.match(/appId:\s*["']([^"']+)["']/);
-        if (apiKeyMatch && apiKeyMatch[1]) apiKey = apiKeyMatch[1];
-        if (appIdMatch && appIdMatch[1]) appId = appIdMatch[1];
-      }
-
-      if (!apiKey) {
-        showToast('Mohon masukkan Web API Key dari Project Settings Firebase Anda.', 'warning');
-        return;
-      }
-
-      const newConfig = {
-        projectId: DEFAULT_PROJECT_ID,
-        authDomain: `${DEFAULT_PROJECT_ID}.firebaseapp.com`,
-        storageBucket: `${DEFAULT_PROJECT_ID}.firebasestorage.app`,
-        apiKey,
-        appId
-      };
-
-      const result = saveFirebaseConfig(newConfig);
-      if (result.success) {
-        showToast('Konfigurasi Firebase disimpan! Menguji koneksi...', 'success');
-        updateCloudStatusBadge('syncing');
-
-        // Test connection by pushing current state
-        try {
-          await syncAllToFirestore({
-            cart: state.cart,
-            history: state.history,
-            priceDB: state.priceDB,
-            budget: state.budgetLimit
-          });
-          updateCloudStatusBadge('connected');
-          showToast('✓ Berhasil terhubung ke Cloud Firestore groceriesmrrian!', 'success');
-          modalBackdrop.classList.remove('active');
-        } catch (err) {
-          console.error('Firestore connection test error:', err);
-          updateCloudStatusBadge('error');
-          showToast('Koneksi gagal: ' + (err.message || 'Periksa aturan Firestore Security Rules'), 'danger');
-        }
-      } else {
-        showToast('Gagal inisialisasi: ' + result.error, 'danger');
-      }
-    });
-  }
-
-  // Sync / Push button
-  const triggerSync = async () => {
-    if (!isFirebaseReady()) {
-      showToast('Firebase belum terkonfigurasi. Buka pengaturan kunci.', 'warning');
-      openModal();
-      return;
-    }
-
-    updateCloudStatusBadge('syncing');
-    showToast('Mengunggah data ke Firestore...', 'warning');
-
-    try {
-      await syncAllToFirestore({
-        cart: state.cart,
-        history: state.history,
-        priceDB: state.priceDB,
-        budget: state.budgetLimit
-      });
-      updateCloudStatusBadge('connected');
-      showToast('✓ Data berhasil masuk ke Cloud Firestore groceriesmrrian!', 'success');
-    } catch (err) {
-      console.error('Sync failed:', err);
-      updateCloudStatusBadge('error');
-      showToast('Gagal sinkronisasi: ' + err.message, 'danger');
-    }
-  };
-
-  if (btnSync) btnSync.addEventListener('click', triggerSync);
-  if (btnQuickUpload) btnQuickUpload.addEventListener('click', triggerSync);
-
-  // Pull button
-  if (btnPull) {
-    btnPull.addEventListener('click', async () => {
-      if (!isFirebaseReady()) {
-        showToast('Firebase belum terkonfigurasi.', 'warning');
-        openModal();
-        return;
-      }
-
-      updateCloudStatusBadge('syncing');
-      showToast('Mengambil data dari Firestore...', 'warning');
-
-      try {
-        const cloudData = await pullAllFromFirestore();
-        if (cloudData.cart) {
-          state.cart = cloudData.cart;
-          storage.saveCart(state.cart);
-        }
-        if (cloudData.history) {
-          state.history = cloudData.history;
-          storage.saveHistory(state.history);
-        }
-        if (cloudData.priceDB) {
-          state.priceDB = cloudData.priceDB;
-          storage.savePriceDB(state.priceDB);
-        }
-        if (cloudData.budget) {
-          state.budgetLimit = cloudData.budget;
-          storage.saveBudget(state.budgetLimit);
-        }
-
-        renderAll();
-        updateCloudStatusBadge('connected');
-        showToast('✓ Data dari Cloud Firestore berhasil ditarik ke aplikasi!', 'success');
-      } catch (err) {
-        console.error('Pull failed:', err);
-        updateCloudStatusBadge('error');
-        showToast('Gagal menarik data: ' + err.message, 'danger');
-      }
-    });
-  }
-
-  // Initial badge check
-  updateCloudStatusBadge();
 }
 
 // ==========================================================================

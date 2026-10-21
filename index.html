@@ -56,9 +56,10 @@
             </div>
           </div>
           <div class="header-actions">
-            <button class="icon-btn-header" id="btnOpenFirebaseModal" title="Cloud Firestore (groceriesmrrian)">
-              <i data-lucide="cloud" style="width:18px; height:18px; color:#f59e0b;"></i>
-            </button>
+            <div class="cloud-realtime-badge" id="cloudRealtimeBadge" title="Real-Time Sync Aktif (Google Cloud Firestore)">
+              <span class="pulsing-live-dot"></span>
+              <span class="live-label">LIVE</span>
+            </div>
             <button class="icon-btn-header" id="btnOpenBudgetModal" title="Atur Batas Anggaran">
               <i data-lucide="sliders-horizontal" style="width:18px; height:18px;"></i>
             </button>
@@ -208,41 +209,37 @@
             </button>
           </div>
 
-          <!-- Firebase Cloud Firestore Sync Card (groceriesmrrian) -->
+          <!-- Firebase Cloud Firestore Real-Time Sync Card (groceriesmrrian) -->
           <div class="firebase-sync-card">
             <div style="display:flex; justify-content:space-between; align-items:center;">
               <div style="display:flex; align-items:center; gap:8px;">
-                <div class="firebase-icon-box">
-                  <i data-lucide="cloud" style="width:18px; height:18px; color:#f59e0b;"></i>
+                <div class="firebase-icon-box" style="background:rgba(16, 185, 129, 0.15); border-color:rgba(16, 185, 129, 0.3);">
+                  <i data-lucide="cloud-lightning" style="width:18px; height:18px; color:#10b981;"></i>
                 </div>
                 <div>
-                  <h3 style="font-size:0.95rem; font-weight:800; color:#fff;">Cloud Firestore Sync</h3>
-                  <span style="font-size:0.72rem; color:var(--text-muted);">Project: <strong>groceriesmrrian</strong> • DB: <strong>(default)</strong></span>
+                  <h3 style="font-size:0.95rem; font-weight:800; color:#fff;">Cloud Firestore Real-Time</h3>
+                  <span style="font-size:0.72rem; color:var(--text-muted);">Project: <strong>groceriesmrrian</strong> • Multi-Device Sync</span>
                 </div>
               </div>
-              <span class="cloud-status-badge" id="cloudStatusBadge">Siap Terhubung</span>
+              <span class="cloud-status-badge connected" id="cloudStatusBadge">
+                <span class="pulsing-live-dot" style="width:7px; height:7px; margin-right:4px;"></span>
+                Live onSnapshot
+              </span>
             </div>
 
             <p style="margin-top:8px; font-size:0.78rem; color:var(--text-secondary); line-height:1.4;">
-              Sinkronkan belanjaan troli aktif, riwayat transaksi, dan patokan harga ke Google Cloud Firestore.
+              Koneksi database otomatis aktif di backend. Setiap barang yang Anda tambah, ubah, atau hapus di HP akan <strong>seketika muncul secara real-time di laptop atau HP lain</strong> via Firestore onSnapshot tanpa perlu refresh!
             </p>
 
-            <div style="display:flex; gap:8px; margin-top:12px;">
-              <button class="btn-secondary-sm" id="btnSyncToCloud" style="background:linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color:#fff; font-weight:700;">
-                <i data-lucide="upload-cloud" style="width:15px; height:15px;"></i> Sinkron ke Cloud
-              </button>
-              <button class="btn-secondary-sm" id="btnPullFromCloud">
-                <i data-lucide="download-cloud" style="width:15px; height:15px;"></i> Tarik Data
-              </button>
-              <button class="btn-secondary-sm" id="btnConfigFirebase" style="flex:0 0 38px; padding:0;" title="Pengaturan Kunci Firebase">
-                <i data-lucide="settings" style="width:15px; height:15px;"></i>
-              </button>
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-top:10px; padding-top:8px; border-top:1px solid var(--border-subtle);">
+              <span style="font-size:0.72rem; color:#10b981; font-weight:600; display:flex; align-items:center; gap:5px;">
+                <i data-lucide="check-circle-2" style="width:13px; height:13px;"></i> Sinkronisasi Multi-Perangkat Aktif
+              </span>
+              <a href="https://console.firebase.google.com/u/0/project/groceriesmrrian/firestore/databases/-default-/data" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; gap:4px; font-size:0.72rem; color:#f59e0b; text-decoration:none; font-weight:600;">
+                <span>Firebase Console</span>
+                <i data-lucide="external-link" style="width:12px; height:12px;"></i>
+              </a>
             </div>
-
-            <a href="https://console.firebase.google.com/u/0/project/groceriesmrrian/firestore/databases/-default-/data" target="_blank" rel="noopener noreferrer" style="display:inline-flex; align-items:center; gap:4px; font-size:0.72rem; color:#f59e0b; text-decoration:none; margin-top:10px; font-weight:600;">
-              <span>Buka Firebase Console Firestore</span>
-              <i data-lucide="external-link" style="width:12px; height:12px;"></i>
-            </a>
           </div>
 
           <!-- Reference Price Database (F-04 / F-06) -->
@@ -598,56 +595,7 @@
   <!-- ========================================================================
        MODAL: PENGATURAN KONEKSI FIREBASE CLOUD FIRESTORE
        ======================================================================== -->
-  <div class="modal-backdrop" id="firebaseModalBackdrop">
-    <div class="modal-sheet" style="max-height:92vh;">
-      <div class="modal-handle-bar"></div>
-      <div class="modal-sheet-header">
-        <h3 class="modal-title" style="display:flex; align-items:center; gap:6px;">
-          <i data-lucide="cloud" style="color:#f59e0b;"></i>
-          <span>Koneksi Cloud Firestore</span>
-        </h3>
-        <button class="modal-close-btn" id="btnCloseFirebaseModal">
-          <i data-lucide="x" style="width:20px; height:20px;"></i>
-        </button>
-      </div>
 
-      <div class="modal-sheet-content">
-        <div style="background:rgba(245, 158, 11, 0.1); border:1px solid rgba(245, 158, 11, 0.25); border-radius:var(--radius-md); padding:10px 14px; font-size:0.78rem; color:var(--text-secondary); line-height:1.4;">
-          <strong style="color:#fff;">Project Terhubung:</strong> groceriesmrrian<br>
-          <strong style="color:#fff;">Database:</strong> (default)<br>
-          <a href="https://console.firebase.google.com/u/0/project/groceriesmrrian/firestore/databases/-default-/data" target="_blank" style="color:#fcd34d; font-weight:600; text-decoration:none;">Buka Google Firebase Console ↗</a>
-        </div>
-
-        <form id="firebaseConfigForm" style="display:flex; flex-direction:column; gap:12px;">
-          <div class="form-field">
-            <label class="form-label" for="inputFbApiKey">Web API Key (dari Project Settings):</label>
-            <input type="text" id="inputFbApiKey" class="form-input-text" placeholder="Contoh: AIzaSyD..." autocomplete="off">
-            <span style="font-size:0.7rem; color:var(--text-muted);">Didapat dari: Firebase Console > Project Settings > General > Web API Key</span>
-          </div>
-
-          <div class="form-field">
-            <label class="form-label" for="inputFbAppId">App ID (Opsional):</label>
-            <input type="text" id="inputFbAppId" class="form-input-text" placeholder="Contoh: 1:123456789:web:abcdef" autocomplete="off">
-          </div>
-
-          <div class="form-field">
-            <label class="form-label" for="inputFbRawConfig">Atau Paste Objek firebaseConfig Lengkap:</label>
-            <textarea id="inputFbRawConfig" class="form-input-text" rows="3" placeholder='const firebaseConfig = { apiKey: "...", ... };' style="font-family:monospace; font-size:0.75rem;"></textarea>
-          </div>
-
-          <button type="submit" class="btn-submit-modal" style="background:linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
-            Simpan Konfigurasi & Uji Koneksi
-          </button>
-        </form>
-
-        <div style="border-top:1px solid var(--border-subtle); padding-top:12px; display:flex; flex-direction:column; gap:8px;">
-          <button class="btn-secondary-sm" id="btnQuickUploadAllFirestore" style="height:44px; background:var(--color-primary); color:#fff;">
-            <i data-lucide="cloud-lightning" style="width:16px; height:16px;"></i> Sinkronkan Semua Data Sekarang
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
 
   <!-- TOAST NOTIFICATION CONTAINER -->
   <div class="toast-container" id="toastContainer"></div>
