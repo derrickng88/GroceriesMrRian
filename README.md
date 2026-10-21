@@ -37,22 +37,10 @@ Aplikasi telah terhubung ke database Cloud Firestore proyek Anda:
 3. `price_database/all_items`: Database patokan harga supermarket untuk komparator bulan berikutnya.
 4. `settings/budget`: Dokumen konfigurasi batas maksimal dompet belanja (*Safety Cap*).
 
-### Cara Menghubungkan & Sinkronkan Data:
-1. Buka [Firebase Console Project Settings](https://console.firebase.google.com/u/0/project/groceriesmrrian/settings/general).
-2. Di bagian **General**, salin **Web API Key** (atau buat Web App jika belum ada untuk mendapatkan konfigurasi lengkap).
-3. Pastikan **Firestore Security Rules** mengizinkan baca/tulis selama pengembangan:
-   ```javascript
-   rules_version = '2';
-   service cloud.firestore {
-     match /databases/{database}/documents {
-       match /{document=**} {
-         allow read, write: if true;
-       }
-     }
-   }
-   ```
-4. Di aplikasi Smart Grocery:
-   - Klik tombol **Awan (☁️)** di header atas atau masuk ke tab **Anggaran** > **Cloud Firestore Sync**.
-   - Tempelkan **Web API Key** (atau seluruh kode `firebaseConfig`).
-   - Klik **Simpan Konfigurasi & Uji Koneksi** lalu **Sinkronkan Semua Data Sekarang**.
-   - Data langsung terunggah ke Cloud Firestore di konsol Firebase Anda!
+### Sinkronisasi Otomatis Real-Time (onSnapshot):
+1. Seluruh kredensial Firebase telah ditanamkan langsung pada backend aplikasi (`src/firebase.js`).
+2. Tidak perlu lagi memasukkan Web API Key atau membuka modal pengaturan secara manual.
+3. Aplikasi secara otomatis mendengarkan perubahan data menggunakan **Firestore `onSnapshot`**:
+   - Menambah, mengubah, atau menghapus barang di smartphone akan langsung terlihat seketika di laptop atau perangkat lain tanpa perlu refresh.
+   - Perubahan batas anggaran (*Safety Cap*) tersinkronisasi secara real-time.
+   - Transaksi yang diselesaikan (*checkout*) otomatis masuk ke riwayat dan memperbarui patokan harga bulan depan di seluruh perangkat.
