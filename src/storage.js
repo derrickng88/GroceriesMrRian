@@ -5,7 +5,9 @@ const STORAGE_KEYS = {
   BUDGET: 'smart_grocery_budget_v1',
   HISTORY: 'smart_grocery_history_v1',
   PRICE_DB: 'smart_grocery_price_db_v1',
-  ACTIVE_PRESET: 'smart_grocery_preset_init_v1'
+  ACTIVE_PRESET: 'smart_grocery_preset_init_v1',
+  LOCATIONS: 'smart_grocery_locations_v1',
+  ACTIVE_LOCATION: 'smart_grocery_active_location_v1'
 };
 
 // Preset default patokan harga bulan lalu (Realistis untuk anak kos / rantau di supermarket)
@@ -25,6 +27,14 @@ export const DEFAULT_PRICE_DB = {
   "tepung terigu 1kg": { name: "Tepung Terigu 1kg", price: 13000, unit: "kg", category: "Bahan Pokok" },
   "kecap manis 520ml": { name: "Kecap Manis 520ml", price: 19000, unit: "pack", category: "Bumbu & Dapur" },
   "biskuit kaleng / snack": { name: "Biskuit Kaleng / Snack", price: 18000, unit: "pcs", category: "Camilan" }
+};
+
+// Preset lokasi belanja default
+export const DEFAULT_LOCATIONS = {
+  "loc-1": { id: "loc-1", name: "Supermarket Mr. Rian", address: "Supermarket Utama" },
+  "loc-2": { id: "loc-2", name: "Indomaret Terdekat", address: "Dekat Kos" },
+  "loc-3": { id: "loc-3", name: "Alfamart Terdekat", address: "Dekat Kampus" },
+  "loc-4": { id: "loc-4", name: "Pasar Tradisional", address: "Pasar Pagi" }
 };
 
 // Item belanja awal realistis di troli saat mahasiswa belanja
@@ -148,6 +158,8 @@ class StorageManager {
       this.saveBudget(500000); // 500 ribu budget anak kos standar
       this.saveHistory(DEFAULT_INITIAL_HISTORY);
       this.savePriceDB(DEFAULT_PRICE_DB);
+      this.saveLocations(DEFAULT_LOCATIONS);
+      this.saveActiveLocation('loc-1');
       localStorage.setItem(STORAGE_KEYS.ACTIVE_PRESET, 'true');
     }
   }
@@ -270,6 +282,66 @@ class StorageManager {
     this.savePriceDB(db);
   }
 
+  /**
+   * Cari detail patokan barang (harga, satuan, kategori) berdasarkan nama barang
+   * @param {string} productName 
+   * @returns {Object|null}
+   */
+  getPriceItem(productName) {
+    if (!productName) return null;
+    const key = normalizeProductName(productName);
+    const db = this.getPriceDB();
+
+    // Exact match
+    if (db[key]) {
+      return db[key];
+    }
+
+    // Substring match
+    for (const [dbKey, item] of Object.entries(db)) {
+      if (dbKey.includes(key) || key.includes(dbKey)) {
+        return item;
+      }
+    }
+
+    return null;
+  }
+
+  // === LOCATIONS ===
+  getLocations() {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.LOCATIONS);
+      return data ? JSON.parse(data) : { ...DEFAULT_LOCATIONS };
+    } catch (e) {
+      return { ...DEFAULT_LOCATIONS };
+    }
+  }
+
+  saveLocations(locations) {
+    try {
+      localStorage.setItem(STORAGE_KEYS.LOCATIONS, JSON.stringify(locations));
+    } catch (e) {
+      console.error('Failed saving locations:', e);
+    }
+  }
+
+  getActiveLocation() {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.ACTIVE_LOCATION);
+      return data || 'loc-1';
+    } catch (e) {
+      return 'loc-1';
+    }
+  }
+
+  saveActiveLocation(locationId) {
+    try {
+      localStorage.setItem(STORAGE_KEYS.ACTIVE_LOCATION, locationId);
+    } catch (e) {
+      console.error('Failed saving active location:', e);
+    }
+  }
+
   // Reset data ke template default awal
   resetToDefaults() {
     localStorage.removeItem(STORAGE_KEYS.ACTIVE_PRESET);
@@ -277,6 +349,8 @@ class StorageManager {
     this.saveBudget(500000);
     this.saveHistory(DEFAULT_INITIAL_HISTORY);
     this.savePriceDB(DEFAULT_PRICE_DB);
+    this.saveLocations(DEFAULT_LOCATIONS);
+    this.saveActiveLocation('loc-1');
     localStorage.setItem(STORAGE_KEYS.ACTIVE_PRESET, 'true');
   }
 
@@ -288,7 +362,9 @@ class StorageManager {
       cart: this.getCart(),
       budget: this.getBudget(),
       history: this.getHistory(),
-      priceDB: this.getPriceDB()
+      priceDB: this.getPriceDB(),
+      locations: this.getLocations(),
+      activeLocation: this.getActiveLocation()
     }, null, 2);
   }
 
@@ -300,6 +376,8 @@ class StorageManager {
       if (data.budget) this.saveBudget(data.budget);
       if (data.history) this.saveHistory(data.history);
       if (data.priceDB) this.savePriceDB(data.priceDB);
+      if (data.locations) this.saveLocations(data.locations);
+      if (data.activeLocation) this.saveActiveLocation(data.activeLocation);
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };

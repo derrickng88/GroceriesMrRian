@@ -171,7 +171,7 @@ async function runAllTests() {
     assert(vHtml.includes('floating-bottom-nav'), 'Floating Bottom Navigation Bar ada di DOM Vercel');
     assert(vHtml.includes('itemModalSheet'), 'Bottom Sheet Modal Tambah/Edit Barang Belanja ada di DOM Vercel');
     assert(vHtml.includes('checkoutModalBackdrop'), 'Modal Struk Checkout Digital ada di DOM Vercel');
-    assert(vHtml.includes('firebaseModalBackdrop'), 'Modal Koneksi Google Cloud Firestore ada di DOM Vercel');
+    assert(vHtml.includes('cloudRealtimeBadge'), 'Indikator Realtime Cloud Firestore terpasang di DOM Vercel');
 
     // Uji Manifest PWA di Vercel
     const mRes = await fetch('https://groceries-mr-rian.vercel.app/manifest.json');

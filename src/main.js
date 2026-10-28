@@ -43,6 +43,12 @@ function initApp() {
   setupBudgetView();
   startLiveClock();
 
+  // Inisialisasi Selector Tanggal Belanja (SRS F-01)
+  const shoppingDateInput = document.getElementById('inputShoppingDate');
+  if (shoppingDateInput && !shoppingDateInput.value) {
+    shoppingDateInput.value = new Date().toISOString().slice(0, 10);
+  }
+
   // 3. Render Seluruh Tampilan Awal
   renderAll();
 
@@ -728,6 +734,7 @@ function setupItemModal() {
     const category = inputCategory.value || 'Lainnya';
     const unit = inputUnit.value || 'pcs';
     const note = inputNote.value.trim();
+    const itemDate = (document.getElementById('inputItemDate') && document.getElementById('inputItemDate').value) || (document.getElementById('inputShoppingDate') && document.getElementById('inputShoppingDate').value) || new Date().toISOString().slice(0, 10);
 
     if (!name || price <= 0) {
       showToast('Mohon masukkan nama produk dan harga yang valid.', 'warning');
@@ -784,6 +791,10 @@ function openAddItemModal() {
   document.getElementById('inputItemQty').value = '1';
   document.getElementById('inputItemCategory').value = 'Bahan Pokok';
   document.getElementById('inputItemUnit').value = 'pcs';
+  const inputItemDate = document.getElementById('inputItemDate');
+  if (inputItemDate) {
+    inputItemDate.value = (document.getElementById('inputShoppingDate') && document.getElementById('inputShoppingDate').value) || new Date().toISOString().slice(0, 10);
+  }
 
   // Reset category selectors
   const catSelector = document.getElementById('categoryPillSelector');
@@ -819,6 +830,10 @@ function openEditItemModal(id) {
   document.getElementById('inputItemCategory').value = item.category || 'Bahan Pokok';
   document.getElementById('inputItemUnit').value = item.unit || 'pcs';
   document.getElementById('inputItemNote').value = item.note || '';
+  const inputItemDate = document.getElementById('inputItemDate');
+  if (inputItemDate) {
+    inputItemDate.value = item.date || (document.getElementById('inputShoppingDate') && document.getElementById('inputShoppingDate').value) || new Date().toISOString().slice(0, 10);
+  }
 
   // Select pill options
   const catSelector = document.getElementById('categoryPillSelector');
@@ -1230,6 +1245,152 @@ function setupBudgetView() {
 }
 
 
+
+
+// ==========================================================================
+// LOKASI BELANJA (SHOPPING LOCATIONS MANAGEMENT)
+// ==========================================================================
+
+function setupLocationEvents() {
+  const btnChangeLocation = document.getElementById('btnChangeLocation');
+  const locationModalBackdrop = document.getElementById('locationModalBackdrop');
+  const btnCloseLocationModal = document.getElementById('btnCloseLocationModal');
+  const newLocationForm = document.getElementById('newLocationForm');
+  const inputNewLocName = document.getElementById('inputNewLocName');
+  const inputNewLocAddress = document.getElementById('inputNewLocAddress');
+  const locationListContainer = document.getElementById('locationListContainer');
+
+  if (btnChangeLocation) {
+    btnChangeLocation.addEventListener('click', () => {
+      renderLocationModalList();
+      locationModalBackdrop.classList.add('active');
+      refreshIcons();
+    });
+  }
+
+  if (btnCloseLocationModal) {
+    btnCloseLocationModal.addEventListener('click', () => {
+      locationModalBackdrop.classList.remove('active');
+    });
+  }
+
+  // Delegated click for location selection & delete
+  if (locationListContainer) {
+    locationListContainer.addEventListener('click', (e) => {
+      const delBtn = e.target.closest('.btn-delete-location');
+      if (delBtn) {
+        e.stopPropagation();
+        const locId = delBtn.getAttribute('data-loc-id');
+        if (confirm('Hapus lokasi belanja ini?')) {
+          delete state.locations[locId];
+          storage.saveLocations(state.locations);
+          saveLocationsToFirestore(state.locations);
+
+          if (state.activeLocation === locId) {
+            const remainingKeys = Object.keys(state.locations);
+            state.activeLocation = remainingKeys.length > 0 ? remainingKeys[0] : 'loc-1';
+            storage.saveActiveLocation(state.activeLocation);
+            saveActiveLocationToFirestore(state.activeLocation);
+          }
+
+          renderActiveLocation();
+          renderLocationModalList();
+          refreshIcons();
+          showToast('Lokasi berhasil dihapus.', 'warning');
+        }
+        return;
+      }
+
+      const card = e.target.closest('.location-card-item');
+      if (card) {
+        const locId = card.getAttribute('data-loc-id');
+        if (locId && state.locations[locId]) {
+          state.activeLocation = locId;
+          storage.saveActiveLocation(locId);
+          saveActiveLocationToFirestore(locId);
+
+          renderActiveLocation();
+          renderLocationModalList();
+          refreshIcons();
+          locationModalBackdrop.classList.remove('active');
+          showToast(`Lokasi belanja diubah ke "${state.locations[locId].name}"`, 'success');
+        }
+      }
+    });
+  }
+
+  // Tambah lokasi belanja baru sendiri
+  if (newLocationForm) {
+    newLocationForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const name = inputNewLocName.value.trim();
+      const address = inputNewLocAddress.value.trim() || 'Lokasi Belanja';
+
+      if (!name) {
+        showToast('Mohon masukkan nama lokasi belanja.', 'warning');
+        return;
+      }
+
+      const newId = 'loc-' + Date.now();
+      state.locations[newId] = {
+        id: newId,
+        name,
+        address
+      };
+
+      storage.saveLocations(state.locations);
+      saveLocationsToFirestore(state.locations);
+
+      // Otomatis aktifkan lokasi baru
+      state.activeLocation = newId;
+      storage.saveActiveLocation(newId);
+      saveActiveLocationToFirestore(newId);
+
+      newLocationForm.reset();
+      renderActiveLocation();
+      renderLocationModalList();
+      refreshIcons();
+      locationModalBackdrop.classList.remove('active');
+      showToast(`Lokasi "${name}" berhasil ditambahkan & dipilih!`, 'success');
+    });
+  }
+}
+
+function renderLocationModalList() {
+  const container = document.getElementById('locationListContainer');
+  if (!container) return;
+
+  const entries = Object.entries(state.locations || {});
+  if (entries.length === 0) {
+    container.innerHTML = `<div style="text-align:center; padding:12px; color:var(--text-muted); font-size:0.8rem;">Belum ada lokasi tersimpan.</div>`;
+    return;
+  }
+
+  container.innerHTML = entries.map(([id, loc]) => {
+    const isActive = id === state.activeLocation;
+    const isDefault = ['loc-1', 'loc-2', 'loc-3', 'loc-4'].includes(id);
+
+    return `
+      <div class="location-card-item ${isActive ? 'active' : ''}" data-loc-id="${id}">
+        <div class="location-card-left">
+          <i data-lucide="${isActive ? 'check-circle-2' : 'map-pin'}" class="${isActive ? 'location-check-icon' : ''}" style="width:18px; height:18px; color:${isActive ? '#10b981' : '#818cf8'};"></i>
+          <div>
+            <div style="font-size:0.88rem; font-weight:700; color:#fff;">${escapeHtml(loc.name)}</div>
+            <div style="font-size:0.72rem; color:var(--text-secondary);">${escapeHtml(loc.address || '')}</div>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:6px;">
+          ${isActive ? `<span style="font-size:0.7rem; color:#10b981; font-weight:700; padding:2px 6px; background:rgba(16, 185, 129, 0.15); border-radius:4px;">Aktif</span>` : ''}
+          ${!isDefault ? `
+            <button type="button" class="action-mini-btn btn-delete-location" data-loc-id="${id}" title="Hapus Lokasi Ini" style="width:28px; height:28px; color:#ef4444;">
+              <i data-lucide="trash-2" style="width:13px; height:13px;"></i>
+            </button>
+          ` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
 
 function startLiveClock() {
   const clockEl = document.getElementById('liveClock');

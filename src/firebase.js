@@ -197,3 +197,79 @@ export async function savePriceDBToFirestore(priceDB) {
     return { success: false, error: err.message };
   }
 }
+
+/**
+ * 5. REALTIME LOCATIONS LISTENER (onSnapshot)
+ * Mendengarkan daftar lokasi belanja (toko/supermarket)
+ * @param {Function} callback - Menerima objek lokasi { id: { name, address } }
+ */
+export function subscribeToLocations(callback, onError = null) {
+  const docRef = doc(firestoreDb, 'settings', 'locations');
+  return onSnapshot(docRef, (snap) => {
+    if (snap.exists()) {
+      const data = snap.data();
+      if (data.items) {
+        callback(data.items);
+      }
+    }
+  }, (err) => {
+    console.warn('onSnapshot settings/locations error:', err);
+    if (onError) onError(err);
+  });
+}
+
+/**
+ * Simpan daftar lokasi belanja ke Firestore
+ * @param {Object} locations
+ */
+export async function saveLocationsToFirestore(locations) {
+  try {
+    const docRef = doc(firestoreDb, 'settings', 'locations');
+    await setDoc(docRef, {
+      updatedAt: serverTimestamp(),
+      items: locations
+    });
+    return { success: true };
+  } catch (err) {
+    console.error('Gagal menyimpan lokasi ke Firestore:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * 6. REALTIME ACTIVE LOCATION LISTENER (onSnapshot)
+ * Mendengarkan lokasi belanja aktif yang sedang dipilih
+ * @param {Function} callback - Menerima string nama lokasi aktif
+ */
+export function subscribeToActiveLocation(callback, onError = null) {
+  const docRef = doc(firestoreDb, 'settings', 'active_location');
+  return onSnapshot(docRef, (snap) => {
+    if (snap.exists()) {
+      const data = snap.data();
+      if (data.locationId !== undefined) {
+        callback(data.locationId);
+      }
+    }
+  }, (err) => {
+    console.warn('onSnapshot settings/active_location error:', err);
+    if (onError) onError(err);
+  });
+}
+
+/**
+ * Simpan lokasi belanja aktif ke Firestore
+ * @param {string} locationId
+ */
+export async function saveActiveLocationToFirestore(locationId) {
+  try {
+    const docRef = doc(firestoreDb, 'settings', 'active_location');
+    await setDoc(docRef, {
+      locationId: locationId,
+      updatedAt: serverTimestamp()
+    });
+    return { success: true };
+  } catch (err) {
+    console.error('Gagal menyimpan lokasi aktif ke Firestore:', err);
+    return { success: false, error: err.message };
+  }
+}
