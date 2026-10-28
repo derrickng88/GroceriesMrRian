@@ -10,7 +10,11 @@ import {
   saveHistoryEntryToFirestore, 
   deleteHistoryFromFirestore, 
   subscribeToPriceDB, 
-  savePriceDBToFirestore 
+  savePriceDBToFirestore,
+  subscribeToLocations,
+  saveLocationsToFirestore,
+  subscribeToActiveLocation,
+  saveActiveLocationToFirestore
 } from './firebase.js';
 
 // Application State
@@ -19,6 +23,8 @@ const state = {
   budgetLimit: 500000,
   history: [],
   priceDB: {},
+  locations: {},
+  activeLocation: 'loc-1',
   currentTab: 'view-shopping',
   editingItemId: null
 };
@@ -33,6 +39,8 @@ function initApp() {
   state.budgetLimit = storage.getBudget();
   state.history = storage.getHistory();
   state.priceDB = storage.getPriceDB();
+  state.locations = storage.getLocations();
+  state.activeLocation = storage.getActiveLocation();
 
   // 2. Setup Event Listeners DOM
   setupNavigation();
@@ -41,6 +49,7 @@ function initApp() {
   setupItemModal();
   setupCheckoutModal();
   setupBudgetView();
+  setupLocationEvents();
   startLiveClock();
 
   // Inisialisasi Selector Tanggal Belanja (SRS F-01)
@@ -125,6 +134,33 @@ function setupRealtimeSync() {
       refreshIcons();
     }
   });
+
+  // 5. Live Locations Sync
+  subscribeToLocations((cloudLocations) => {
+    if (cloudLocations && Object.keys(cloudLocations).length > 0) {
+      const currentJson = JSON.stringify(state.locations);
+      const cloudJson = JSON.stringify(cloudLocations);
+
+      if (currentJson !== cloudJson) {
+        state.locations = cloudLocations;
+        storage.saveLocations(cloudLocations);
+        renderActiveLocation();
+        renderLocationModalList();
+        refreshIcons();
+      }
+    }
+  });
+
+  // 6. Live Active Location Sync
+  subscribeToActiveLocation((cloudActiveLoc) => {
+    if (cloudActiveLoc && cloudActiveLoc !== state.activeLocation) {
+      state.activeLocation = cloudActiveLoc;
+      storage.saveActiveLocation(cloudActiveLoc);
+      renderActiveLocation();
+      renderLocationModalList();
+      refreshIcons();
+    }
+  });
 }
 
 // ==========================================================================
@@ -133,10 +169,27 @@ function setupRealtimeSync() {
 
 function renderAll() {
   renderSafetyBudgetHeader();
+  renderActiveLocation();
   renderCartList();
   renderHistoryList();
   renderDbItemsList();
   refreshIcons();
+}
+
+/**
+ * Render Lokasi Belanja yang Sedang Aktif di Banner Toko
+ */
+function renderActiveLocation() {
+  const activeLocName = document.getElementById('activeLocationName');
+  const activeLocAddr = document.getElementById('activeLocationAddress');
+  const locId = state.activeLocation || 'loc-1';
+  const loc = (state.locations && state.locations[locId]) || {
+    id: 'loc-1',
+    name: 'Supermarket Mr. Rian',
+    address: 'Supermarket Utama'
+  };
+  if (activeLocName) activeLocName.textContent = loc.name;
+  if (activeLocAddr) activeLocAddr.textContent = loc.address || 'Lokasi Belanja';
 }
 
 /**

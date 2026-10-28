@@ -1,7 +1,7 @@
 // Script untuk memasukkan semua data Smart Grocery langsung ke Cloud Firestore (groceriesmrrian)
 // Endpoint: https://firestore.googleapis.com/v1/projects/groceriesmrrian/databases/(default)/documents
 
-import { DEFAULT_INITIAL_CART, DEFAULT_INITIAL_HISTORY, DEFAULT_PRICE_DB } from '../src/storage.js';
+import { DEFAULT_INITIAL_CART, DEFAULT_INITIAL_HISTORY, DEFAULT_PRICE_DB, DEFAULT_LOCATIONS } from '../src/storage.js';
 
 const PROJECT_ID = 'groceriesmrrian';
 const BASE_URL = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
@@ -120,7 +120,21 @@ export async function uploadAll(apiKey = '') {
   }, apiKey);
   console.log(`   Status: ${budgetResult.status} (${budgetResult.ok ? 'SUKSES ✓' : 'GAGAL ✗'})`);
 
-  return { cartResult, priceResult, budgetResult };
+  // 5. Upload Pengaturan Lokasi Belanja (settings/locations & settings/active_location)
+  console.log('\n5. Mengunggah settings/locations & settings/active_location...');
+  const locationsResult = await writeDocument('settings', 'locations', {
+    locations: DEFAULT_LOCATIONS,
+    updatedAt: new Date().toISOString()
+  }, apiKey);
+  console.log(`   Status locations: ${locationsResult.status} (${locationsResult.ok ? 'SUKSES ✓' : 'GAGAL ✗'})`);
+
+  const activeLocResult = await writeDocument('settings', 'active_location', {
+    activeLocation: 'loc-1',
+    updatedAt: new Date().toISOString()
+  }, apiKey);
+  console.log(`   Status active_location: ${activeLocResult.status} (${activeLocResult.ok ? 'SUKSES ✓' : 'GAGAL ✗'})`);
+
+  return { cartResult, priceResult, budgetResult, locationsResult, activeLocResult };
 }
 
 const argKey = process.argv[2] || '';
