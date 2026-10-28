@@ -1253,6 +1253,7 @@ function setupBudgetView() {
 
 function setupLocationEvents() {
   const btnChangeLocation = document.getElementById('btnChangeLocation');
+  const btnManageLocationsInTab = document.getElementById('btnManageLocationsInTab');
   const locationModalBackdrop = document.getElementById('locationModalBackdrop');
   const btnCloseLocationModal = document.getElementById('btnCloseLocationModal');
   const newLocationForm = document.getElementById('newLocationForm');
@@ -1260,13 +1261,13 @@ function setupLocationEvents() {
   const inputNewLocAddress = document.getElementById('inputNewLocAddress');
   const locationListContainer = document.getElementById('locationListContainer');
 
-  if (btnChangeLocation) {
-    btnChangeLocation.addEventListener('click', () => {
-      renderLocationModalList();
-      locationModalBackdrop.classList.add('active');
-      refreshIcons();
-    });
-  }
+  const openLocModal = () => {
+    renderLocationModalList();
+    locationModalBackdrop.classList.add('active');
+    refreshIcons();
+  };
+  if (btnChangeLocation) btnChangeLocation.addEventListener('click', openLocModal);
+  if (btnManageLocationsInTab) btnManageLocationsInTab.addEventListener('click', openLocModal);
 
   if (btnCloseLocationModal) {
     btnCloseLocationModal.addEventListener('click', () => {
@@ -1275,7 +1276,56 @@ function setupLocationEvents() {
   }
 
   // Delegated click for location selection & delete
+  const tabLocationListContainer = document.getElementById('tabLocationListContainer');
+  const handleLocationClick = (e) => {
+    const delBtn = e.target.closest('.btn-delete-location');
+    if (delBtn) {
+      e.stopPropagation();
+      const locId = delBtn.getAttribute('data-loc-id');
+      if (confirm('Hapus lokasi belanja ini?')) {
+        delete state.locations[locId];
+        storage.saveLocations(state.locations);
+        saveLocationsToFirestore(state.locations);
+
+        if (state.activeLocation === locId) {
+          const remainingKeys = Object.keys(state.locations);
+          state.activeLocation = remainingKeys.length > 0 ? remainingKeys[0] : 'loc-1';
+          storage.saveActiveLocation(state.activeLocation);
+          saveActiveLocationToFirestore(state.activeLocation);
+        }
+
+        renderActiveLocation();
+        renderLocationModalList();
+        refreshIcons();
+        showToast('Lokasi berhasil dihapus.', 'warning');
+      }
+      return;
+    }
+
+    const card = e.target.closest('.location-card-item');
+    if (card) {
+      const locId = card.getAttribute('data-loc-id');
+      if (locId && state.locations[locId]) {
+        state.activeLocation = locId;
+        storage.saveActiveLocation(locId);
+        saveActiveLocationToFirestore(locId);
+
+        renderActiveLocation();
+        renderLocationModalList();
+        refreshIcons();
+        locationModalBackdrop.classList.remove('active');
+        showToast(`Lokasi belanja diubah ke "${state.locations[locId].name}"`, 'success');
+      }
+    }
+  };
+
   if (locationListContainer) {
+    locationListContainer.addEventListener('click', handleLocationClick);
+  }
+  if (tabLocationListContainer) {
+    tabLocationListContainer.addEventListener('click', handleLocationClick);
+  }
+  if (false) {
     locationListContainer.addEventListener('click', (e) => {
       const delBtn = e.target.closest('.btn-delete-location');
       if (delBtn) {
@@ -1366,7 +1416,7 @@ function renderLocationModalList() {
     return;
   }
 
-  container.innerHTML = entries.map(([id, loc]) => {
+  const renderedHtml = entries.map(([id, loc]) => {
     const isActive = id === state.activeLocation;
     const isDefault = ['loc-1', 'loc-2', 'loc-3', 'loc-4'].includes(id);
 
@@ -1390,6 +1440,9 @@ function renderLocationModalList() {
       </div>
     `;
   }).join('');
+  container.innerHTML = renderedHtml;
+  const tabContainer = document.getElementById('tabLocationListContainer');
+  if (tabContainer) tabContainer.innerHTML = renderedHtml;
 }
 
 function startLiveClock() {

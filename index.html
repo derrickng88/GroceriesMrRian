@@ -65,40 +65,6 @@
             </button>
           </div>
         </div>
-
-        <!-- F-05: Safety Cap Live Budget Card -->
-        <section class="safety-cap-card" id="safetyCapCard" aria-label="Status Anggaran Belanja">
-          <div class="safety-header">
-            <div class="safety-badge safe" id="safetyBadge">
-              <i data-lucide="shield-check" style="width:12px; height:12px;" id="safetyBadgeIcon"></i>
-              <span id="safetyBadgeText">ZONA AMAN</span>
-            </div>
-            <button class="budget-edit-trigger" id="btnQuickEditBudget">
-              <span id="headerBudgetCapDisplay">Batas: Rp 500.000</span>
-              <i data-lucide="edit-3" style="width:12px; height:12px;"></i>
-            </button>
-          </div>
-
-          <div class="budget-figures">
-            <div>
-              <div class="figure-current" id="headerTotalSpent">Rp 0</div>
-              <div class="figure-limit" id="headerRemainingAmount">Sisa Dompet: Rp 500.000</div>
-            </div>
-            <div style="text-align: right;">
-              <span style="font-size: 1.35rem; font-weight: 800; font-family: var(--font-display);" id="headerBudgetPercent">0%</span>
-              <div style="font-size: 0.68rem; color: var(--text-muted);">Terpakai</div>
-            </div>
-          </div>
-
-          <div class="progress-container">
-            <div class="progress-fill safe" id="budgetProgressFill" style="width: 0%;"></div>
-          </div>
-
-          <div class="safety-footer">
-            <span class="safety-alert-text safe" id="safetyAdviceText">Dompet aman. Belanja masih terkendali.</span>
-            <span id="cartTotalItemsCount">0 Item</span>
-          </div>
-        </section>
       </header>
 
       <!-- SCROLLABLE CONTENT VIEWS -->
@@ -106,6 +72,40 @@
 
         <!-- TAB 1: BELANJA (Active Shopping Trolley View) -->
         <article id="view-shopping" class="view-section active">
+
+          <!-- F-05: Safety Cap Live Budget Card (Bisa di-scroll, tidak stuck kaku di atas layar) -->
+          <section class="safety-cap-card" id="safetyCapCard" aria-label="Status Anggaran Belanja">
+            <div class="safety-header">
+              <div class="safety-badge safe" id="safetyBadge">
+                <i data-lucide="shield-check" style="width:12px; height:12px;" id="safetyBadgeIcon"></i>
+                <span id="safetyBadgeText">ZONA AMAN</span>
+              </div>
+              <button class="budget-edit-trigger" id="btnQuickEditBudget">
+                <span id="headerBudgetCapDisplay">Batas: Rp 500.000</span>
+                <i data-lucide="edit-3" style="width:12px; height:12px;"></i>
+              </button>
+            </div>
+
+            <div class="budget-figures">
+              <div>
+                <div class="figure-current" id="headerTotalSpent">Rp 0</div>
+                <div class="figure-limit" id="headerRemainingAmount">Sisa Dompet: Rp 500.000</div>
+              </div>
+              <div style="text-align: right;">
+                <span style="font-size: 1.35rem; font-weight: 800; font-family: var(--font-display);" id="headerBudgetPercent">0%</span>
+                <div style="font-size: 0.68rem; color: var(--text-muted);">Terpakai</div>
+              </div>
+            </div>
+
+            <div class="progress-container">
+              <div class="progress-fill safe" id="budgetProgressFill" style="width: 0%;"></div>
+            </div>
+
+            <div class="safety-footer">
+              <span class="safety-alert-text safe" id="safetyAdviceText">Dompet aman. Belanja masih terkendali.</span>
+              <span id="cartTotalItemsCount">0 Item</span>
+            </div>
+          </section>
           
 
 
@@ -262,6 +262,22 @@
                 <span>Firebase Console</span>
                 <i data-lucide="external-link" style="width:12px; height:12px;"></i>
               </a>
+            </div>
+          </div>
+
+          <!-- Pengaturan Lokasi Belanja (Settings Lokasi Toko) -->
+          <div class="price-db-section" style="margin-bottom: 16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <h3 style="font-size:0.95rem; font-weight:800; color:#fff;">Daftar Lokasi Belanja</h3>
+                <span style="font-size:0.72rem; color:var(--text-muted);">Kelola toko & supermarket tempat berbelanja</span>
+              </div>
+              <button class="btn-secondary-sm" id="btnManageLocationsInTab" style="padding:4px 8px; font-size:0.7rem;">
+                <i data-lucide="map-pin" style="width:13px; height:13px;"></i> Kelola Lokasi
+              </button>
+            </div>
+            <div class="location-list" id="tabLocationListContainer" style="margin-top:10px;">
+              <!-- Dynamic locations in settings tab -->
             </div>
           </div>
 

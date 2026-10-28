@@ -187,7 +187,7 @@ input, button, select, textarea {
    ========================================================================== */
 
 .app-header {
-  padding: 10px 18px 12px;
+  padding: 8px 18px 8px;
   background-color: var(--bg-app);
   border-bottom: 1px solid var(--border-subtle);
   position: relative;
@@ -198,7 +198,7 @@ input, button, select, textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 0;
 }
 
 .brand-title {
@@ -294,15 +294,19 @@ input, button, select, textarea {
   transform: scale(0.96);
 }
 
-/* Safety Cap Budget Controller Card (F-05) */
+/* Safety Cap Budget Controller Card (F-05) - Smooth & Modern Card */
 .safety-cap-card {
-  background: linear-gradient(145deg, #161e34, #111728);
-  border-radius: var(--radius-md);
-  padding: 12px 14px;
-  border: 1px solid var(--border-subtle);
+  background: linear-gradient(145deg, rgba(30, 41, 59, 0.75), rgba(15, 23, 42, 0.85));
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: 18px;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   position: relative;
   overflow: hidden;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-bottom: 12px;
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.35);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* Pulsing alert states for over-budget */
