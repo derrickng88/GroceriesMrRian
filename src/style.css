@@ -296,10 +296,9 @@ input, button, select, textarea {
 
 /* Safety Cap Budget Controller Card (F-05) - Smooth & Modern Card */
 .safety-cap-card {
-  background: linear-gradient(145deg, rgba(30, 41, 59, 0.75), rgba(15, 23, 42, 0.85));
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.95));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
   padding: 14px 16px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   position: relative;
@@ -457,7 +456,7 @@ input, button, select, textarea {
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  padding: 14px 16px calc(var(--bottom-nav-height) + 24px);
+  padding: 14px 16px calc(var(--bottom-nav-height) + 80px);
 }
 
 /* Custom Scrollbar */
@@ -520,20 +519,7 @@ input, button, select, textarea {
   gap: 12px;
 }
 
-.cart-item-card {
-  background: var(--bg-card);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-subtle);
-  padding: 14px;
-  transition: all 0.2s ease;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.cart-item-card:active {
-  border-color: rgba(255, 255, 255, 0.2);
-}
+/* cart-item-card expandable styling defined in unified component section */
 
 /* Card Header: Name + Category + Unit */
 .item-card-header {
@@ -1162,15 +1148,17 @@ input, button, select, textarea {
    ========================================================================== */
 
 .floating-bottom-nav {
-  position: absolute;
+  position: fixed;
   bottom: 14px;
-  left: 16px;
-  right: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 32px);
+  max-width: 398px;
   height: var(--bottom-nav-height);
-  background: var(--bg-glass);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-radius: 24px;
+  background: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-radius: 26px;
   border: 1px solid var(--border-medium);
   display: flex;
   align-items: center;
@@ -1516,7 +1504,7 @@ input, button, select, textarea {
 /* Toast Notifications */
 .toast-container {
   position: fixed;
-  top: 24px;
+  top: 72px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 9999;
@@ -1638,9 +1626,9 @@ input, button, select, textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(30, 41, 59, 0.8));
-  border: 1px solid rgba(99, 102, 241, 0.28);
-  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(30, 41, 59, 0.85));
+  border: 1px solid rgba(99, 102, 241, 0.32);
+  border-radius: 16px;
   padding: 10px 14px;
   margin-bottom: 12px;
   gap: 10px;
@@ -1810,3 +1798,155 @@ input, button, select, textarea {
 }
 
 
+
+
+/* ==========================================================================
+   EXPANDABLE CART ITEM CARDS (Tap to Expand)
+   ========================================================================== */
+
+.cart-item-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  padding: 12px 14px;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.cart-item-card:hover {
+  border-color: rgba(99, 102, 241, 0.3);
+}
+.cart-item-card:active {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+.cart-item-card.expanded {
+  border-color: rgba(99, 102, 241, 0.45);
+  background: linear-gradient(145deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.98));
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  gap: 10px;
+}
+
+/* Card Summary Header (Selalu terlihat) */
+.item-card-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.item-summary-left {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.item-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.item-summary-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.item-summary-price {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.summary-subtotal {
+  font-size: 0.95rem;
+  font-weight: 800;
+  font-family: var(--font-display);
+  color: #fff;
+}
+.summary-unit-price {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+.item-expand-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+.cart-item-card.expanded .item-expand-icon {
+  background: rgba(99, 102, 241, 0.2);
+  color: #818cf8;
+}
+
+/* Detail Tambahan (Expandable Body) */
+.item-card-expandable {
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+  animation: expandSlide 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.cart-item-card.expanded .item-card-expandable {
+  display: flex;
+}
+@keyframes expandSlide {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.item-expanded-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.item-note-text {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  font-style: italic;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.discount-badge-mini {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.15);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+.comparator-mini {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  font-size: 10px;
+}
+.comparator-mini.badge-down {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+}
+.comparator-mini.badge-up {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}

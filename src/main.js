@@ -25,6 +25,7 @@ const state = {
   priceDB: {},
   locations: {},
   activeLocation: 'loc-1',
+  expandedItemIds: new Set(),
   currentTab: 'view-shopping',
   editingItemId: null
 };
@@ -292,7 +293,7 @@ function renderCartList() {
 
   emptyCartBox.style.display = 'none';
   cartActionBar.style.display = 'flex';
-  cartCountSummary.textContent = `Troli: ${state.cart.length} Produk`;
+  cartCountSummary.textContent = `Troli: ${state.cart.length} Produk (Sentuh item untuk expand/detail)`;
 
   container.innerHTML = state.cart.map(item => {
     const qty = Number(item.qty) || 1;
@@ -303,71 +304,95 @@ function renderCartList() {
     // F-04: Komparator Harga vs Bulan Lalu
     const lastPrice = storage.getLastMonthPrice(item.name);
     const comp = comparePrice(price, lastPrice);
+    const isExpanded = state.expandedItemIds.has(item.id);
 
     return `
-      <article class="cart-item-card" data-id="${item.id}">
-        <!-- Header: Nama + Kategori + Satuan -->
-        <div class="item-card-header">
-          <div class="item-name-group">
-            <h3 class="item-name">${escapeHtml(item.name)}</h3>
+      <article class="cart-item-card ${isExpanded ? 'expanded' : ''}" data-id="${item.id}">
+        <!-- Header Ringkas (Selalu terlihat, sentuh untuk expand/collapse) -->
+        <div class="item-card-summary" data-toggle-item="${item.id}" title="Sentuh untuk expand / ciutkan detail">
+          <div class="item-summary-left">
+            <div class="item-name-row">
+              <h3 class="item-name">${escapeHtml(item.name)}</h3>
+            </div>
             <div class="item-tags">
               <span class="category-badge">${escapeHtml(item.category || 'Lainnya')}</span>
-              <span class="unit-badge">${escapeHtml(item.unit || 'pcs')}</span>
-              ${item.note ? `<span style="font-size:0.68rem; color:var(--text-muted); font-style:italic;">"${escapeHtml(item.note)}"</span>` : ''}
+              <span class="unit-badge">${qty} ${escapeHtml(item.unit || 'pcs')}</span>
+              ${disc.hasDiscount ? `<span class="discount-badge-mini">Diskon</span>` : ''}
+              ${comp.arrowIcon !== 'minus' && comp.status !== 'new' && comp.status !== 'equal' ? `
+                <span class="comparator-mini ${comp.badgeClass}" title="${comp.subText}">
+                  <i data-lucide="${comp.arrowIcon}"></i>
+                </span>
+              ` : ''}
             </div>
           </div>
-          
-          <!-- F-04: Realtime Comparator Pill -->
-          <div class="comparator-pill ${comp.badgeClass}" title="${comp.subText}">
-            <i data-lucide="${comp.arrowIcon}"></i>
-            <span>${comp.label}</span>
+
+          <div class="item-summary-right">
+            <div class="item-summary-price">
+              <span class="summary-subtotal">${formatRp(subtotal)}</span>
+              <span class="summary-unit-price">@ ${formatRp(disc.finalUnitPrice)}</span>
+            </div>
+            <div class="item-expand-icon">
+              <i data-lucide="${isExpanded ? 'chevron-up' : 'chevron-down'}"></i>
+            </div>
           </div>
         </div>
 
-        <!-- Baris Harga Satuan & Harga Diskon -->
-        <div class="item-price-row">
-          <div class="unit-price-box">
-            ${disc.hasDiscount ? `<span class="original-price-strikethrough">${formatRp(price)}</span>` : ''}
-            <span class="final-unit-price">${formatRp(disc.finalUnitPrice)}</span>
-            <span class="price-unit-label">/ ${escapeHtml(item.unit || 'pcs')}</span>
-          </div>
-        </div>
-
-        <!-- F-03: Tiered Discount Breakdown Box -->
-        ${disc.hasDiscount ? `
-          <div class="discount-breakdown-box">
-            <div class="discount-text">
-              <i data-lucide="tag" style="width:12px; height:12px;"></i>
-              <span>${disc.formulaExplanation}</span>
+        <!-- Detail Tambahan (Hanya tampil saat item di-expand/di-tap) -->
+        <div class="item-card-expandable">
+          <!-- Realtime Comparator & Note Row -->
+          <div class="item-expanded-meta">
+            <div class="comparator-pill ${comp.badgeClass}" title="${comp.subText}">
+              <i data-lucide="${comp.arrowIcon}"></i>
+              <span>${comp.label}</span>
             </div>
-            <span class="discount-saved-amt">Hemat ${formatRp(disc.discountPerUnit * qty)}</span>
-          </div>
-        ` : ''}
-
-        <!-- Footer: Stepper (F-02) + Subtotal + Tombol Aksi -->
-        <div class="item-card-bottom">
-          <div class="stepper-container">
-            <button type="button" class="stepper-btn btn-step-minus" data-id="${item.id}" aria-label="Kurangi Jumlah">
-              <i data-lucide="minus"></i>
-            </button>
-            <input type="number" class="stepper-value-input item-qty-input" data-id="${item.id}" value="${qty}" min="1" step="1">
-            <button type="button" class="stepper-btn btn-step-plus" data-id="${item.id}" aria-label="Tambah Jumlah">
-              <i data-lucide="plus"></i>
-            </button>
+            ${item.note ? `<div class="item-note-text"><i data-lucide="info" style="width:12px; height:12px;"></i> ${escapeHtml(item.note)}</div>` : ''}
           </div>
 
-          <div class="item-subtotal-group">
-            <span class="subtotal-label">Total Baris</span>
-            <span class="subtotal-amount">${formatRp(subtotal)}</span>
+          <!-- Baris Harga Satuan & Strikethrough -->
+          <div class="item-price-row">
+            <div class="unit-price-box">
+              ${disc.hasDiscount ? `<span class="original-price-strikethrough">${formatRp(price)}</span>` : ''}
+              <span class="final-unit-price">${formatRp(disc.finalUnitPrice)}</span>
+              <span class="price-unit-label">/ ${escapeHtml(item.unit || 'pcs')}</span>
+            </div>
           </div>
 
-          <div class="item-action-btns">
-            <button class="action-mini-btn btn-edit-item" data-id="${item.id}" title="Edit Barang">
-              <i data-lucide="edit-2" style="width:15px; height:15px;"></i>
-            </button>
-            <button class="action-mini-btn btn-delete btn-delete-item" data-id="${item.id}" title="Hapus Barang">
-              <i data-lucide="trash-2" style="width:15px; height:15px;"></i>
-            </button>
+          <!-- F-03: Tiered Discount Breakdown Box -->
+          ${disc.hasDiscount ? `
+            <div class="discount-breakdown-box">
+              <div class="discount-text">
+                <i data-lucide="tag" style="width:12px; height:12px;"></i>
+                <span>${disc.formulaExplanation}</span>
+              </div>
+              <span class="discount-saved-amt">Hemat ${formatRp(disc.discountPerUnit * qty)}</span>
+            </div>
+          ` : ''}
+
+          <!-- Footer: Stepper (F-02) + Subtotal + Tombol Aksi -->
+          <div class="item-card-bottom">
+            <div class="stepper-container">
+              <button type="button" class="stepper-btn btn-step-minus" data-id="${item.id}" aria-label="Kurangi Jumlah">
+                <i data-lucide="minus"></i>
+              </button>
+              <input type="number" class="stepper-value-input item-qty-input" data-id="${item.id}" value="${qty}" min="1" step="1">
+              <button type="button" class="stepper-btn btn-step-plus" data-id="${item.id}" aria-label="Tambah Jumlah">
+                <i data-lucide="plus"></i>
+              </button>
+            </div>
+
+            <div class="item-subtotal-group">
+              <span class="subtotal-label">Total Baris</span>
+              <span class="subtotal-amount">${formatRp(subtotal)}</span>
+            </div>
+
+            <div class="item-action-btns">
+              <button type="button" class="action-mini-btn btn-edit-item" data-id="${item.id}" title="Edit Barang">
+                <i data-lucide="edit-2" style="width:15px; height:15px;"></i>
+              </button>
+              <button type="button" class="action-mini-btn btn-delete btn-delete-item" data-id="${item.id}" title="Hapus Barang">
+                <i data-lucide="trash-2" style="width:15px; height:15px;"></i>
+              </button>
+            </div>
           </div>
         </div>
       </article>
@@ -574,28 +599,72 @@ function setupHeaderControls() {
 // CART INTERACTIONS (F-01, F-02, F-06)
 // ==========================================================================
 
+function toggleItemExpanded(itemId) {
+  if (state.expandedItemIds.has(itemId)) {
+    state.expandedItemIds.delete(itemId);
+  } else {
+    state.expandedItemIds.add(itemId);
+  }
+
+  const card = document.querySelector(`.cart-item-card[data-id="${itemId}"]`);
+  if (card) {
+    const isNowExpanded = state.expandedItemIds.has(itemId);
+    card.classList.toggle('expanded', isNowExpanded);
+    const iconContainer = card.querySelector('.item-expand-icon');
+    if (iconContainer) {
+      iconContainer.innerHTML = `<i data-lucide="${isNowExpanded ? 'chevron-up' : 'chevron-down'}"></i>`;
+      refreshIcons();
+    }
+  }
+}
+
 function setupCartEvents() {
   const container = document.getElementById('cartItemsContainer');
 
-  // Delegated events for Cart Items: Stepper buttons, delete, edit
+  // Delegated events for Cart Items: Stepper buttons, delete, edit, or toggle expand
   container.addEventListener('click', (e) => {
     const stepPlus = e.target.closest('.btn-step-plus');
     const stepMinus = e.target.closest('.btn-step-minus');
     const deleteBtn = e.target.closest('.btn-delete-item');
     const editBtn = e.target.closest('.btn-edit-item');
+    const qtyInput = e.target.closest('.item-qty-input');
 
     if (stepPlus) {
+      e.stopPropagation();
       const id = stepPlus.getAttribute('data-id');
       updateCartItemQty(id, 1);
-    } else if (stepMinus) {
+      return;
+    } 
+    if (stepMinus) {
+      e.stopPropagation();
       const id = stepMinus.getAttribute('data-id');
       updateCartItemQty(id, -1);
-    } else if (deleteBtn) {
+      return;
+    } 
+    if (deleteBtn) {
+      e.stopPropagation();
       const id = deleteBtn.getAttribute('data-id');
       deleteCartItem(id);
-    } else if (editBtn) {
+      return;
+    } 
+    if (editBtn) {
+      e.stopPropagation();
       const id = editBtn.getAttribute('data-id');
       openEditItemModal(id);
+      return;
+    }
+    if (qtyInput) {
+      e.stopPropagation();
+      return;
+    }
+
+    // Toggle expand/collapse saat tap card
+    const card = e.target.closest('.cart-item-card');
+    if (card) {
+      const id = card.getAttribute('data-id');
+      if (id) {
+        toggleItemExpanded(id);
+      }
     }
   });
 
@@ -823,6 +892,7 @@ function setupItemModal() {
       };
       // Menaruh barang baru langsung di urutan paling atas troli
       state.cart.unshift(newItem);
+      state.expandedItemIds.add(newItem.id);
       showToast(`"${name}" masuk ke troli!`, 'success');
     }
 
