@@ -1252,22 +1252,55 @@ function setupBudgetView() {
 // ==========================================================================
 
 function setupLocationEvents() {
+  const locationSelectorCard = document.getElementById('locationSelectorCard');
   const btnChangeLocation = document.getElementById('btnChangeLocation');
   const btnManageLocationsInTab = document.getElementById('btnManageLocationsInTab');
   const locationModalBackdrop = document.getElementById('locationModalBackdrop');
   const btnCloseLocationModal = document.getElementById('btnCloseLocationModal');
   const newLocationForm = document.getElementById('newLocationForm');
+  const editLocId = document.getElementById('editLocId');
   const inputNewLocName = document.getElementById('inputNewLocName');
   const inputNewLocAddress = document.getElementById('inputNewLocAddress');
+  const locFormTitle = document.getElementById('locFormTitle');
+  const btnSubmitLocText = document.getElementById('btnSubmitLocText');
+  const btnCancelEditLoc = document.getElementById('btnCancelEditLoc');
   const locationListContainer = document.getElementById('locationListContainer');
+  const tabLocationListContainer = document.getElementById('tabLocationListContainer');
 
   const openLocModal = () => {
+    resetLocForm();
     renderLocationModalList();
     locationModalBackdrop.classList.add('active');
     refreshIcons();
+    setTimeout(() => {
+      if (inputNewLocName) inputNewLocName.focus();
+    }, 100);
   };
-  if (btnChangeLocation) btnChangeLocation.addEventListener('click', openLocModal);
-  if (btnManageLocationsInTab) btnManageLocationsInTab.addEventListener('click', openLocModal);
+
+  const resetLocForm = () => {
+    if (newLocationForm) newLocationForm.reset();
+    if (editLocId) editLocId.value = '';
+    if (locFormTitle) locFormTitle.textContent = 'Ketik / Tambah Lokasi Toko Sendiri:';
+    if (btnSubmitLocText) btnSubmitLocText.textContent = 'Simpan & Gunakan Lokasi Ini';
+    if (btnCancelEditLoc) btnCancelEditLoc.style.display = 'none';
+  };
+
+  if (locationSelectorCard) {
+    locationSelectorCard.addEventListener('click', (e) => {
+      openLocModal();
+    });
+  }
+
+  if (btnChangeLocation) {
+    btnChangeLocation.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openLocModal();
+    });
+  }
+
+  if (btnManageLocationsInTab) {
+    btnManageLocationsInTab.addEventListener('click', openLocModal);
+  }
 
   if (btnCloseLocationModal) {
     btnCloseLocationModal.addEventListener('click', () => {
@@ -1275,9 +1308,39 @@ function setupLocationEvents() {
     });
   }
 
-  // Delegated click for location selection & delete
-  const tabLocationListContainer = document.getElementById('tabLocationListContainer');
+  if (locationModalBackdrop) {
+    locationModalBackdrop.addEventListener('click', (e) => {
+      if (e.target === locationModalBackdrop) {
+        locationModalBackdrop.classList.remove('active');
+      }
+    });
+  }
+
+  if (btnCancelEditLoc) {
+    btnCancelEditLoc.addEventListener('click', resetLocForm);
+  }
+
+  // Delegated click for location selection, edit, & delete
   const handleLocationClick = (e) => {
+    // 1. Edit location
+    const editBtn = e.target.closest('.btn-edit-loc-item');
+    if (editBtn) {
+      e.stopPropagation();
+      const locId = editBtn.getAttribute('data-loc-id');
+      const loc = state.locations[locId];
+      if (loc) {
+        if (editLocId) editLocId.value = locId;
+        if (inputNewLocName) inputNewLocName.value = loc.name;
+        if (inputNewLocAddress) inputNewLocAddress.value = loc.address || '';
+        if (locFormTitle) locFormTitle.textContent = `Edit Lokasi "${loc.name}":`;
+        if (btnSubmitLocText) btnSubmitLocText.textContent = 'Simpan Perubahan';
+        if (btnCancelEditLoc) btnCancelEditLoc.style.display = 'inline-block';
+        if (inputNewLocName) inputNewLocName.focus();
+      }
+      return;
+    }
+
+    // 2. Delete location
     const delBtn = e.target.closest('.btn-delete-location');
     if (delBtn) {
       e.stopPropagation();
@@ -1302,6 +1365,7 @@ function setupLocationEvents() {
       return;
     }
 
+    // 3. Select location
     const card = e.target.closest('.location-card-item');
     if (card) {
       const locId = card.getAttribute('data-loc-id');
@@ -1325,51 +1389,8 @@ function setupLocationEvents() {
   if (tabLocationListContainer) {
     tabLocationListContainer.addEventListener('click', handleLocationClick);
   }
-  if (false) {
-    locationListContainer.addEventListener('click', (e) => {
-      const delBtn = e.target.closest('.btn-delete-location');
-      if (delBtn) {
-        e.stopPropagation();
-        const locId = delBtn.getAttribute('data-loc-id');
-        if (confirm('Hapus lokasi belanja ini?')) {
-          delete state.locations[locId];
-          storage.saveLocations(state.locations);
-          saveLocationsToFirestore(state.locations);
 
-          if (state.activeLocation === locId) {
-            const remainingKeys = Object.keys(state.locations);
-            state.activeLocation = remainingKeys.length > 0 ? remainingKeys[0] : 'loc-1';
-            storage.saveActiveLocation(state.activeLocation);
-            saveActiveLocationToFirestore(state.activeLocation);
-          }
-
-          renderActiveLocation();
-          renderLocationModalList();
-          refreshIcons();
-          showToast('Lokasi berhasil dihapus.', 'warning');
-        }
-        return;
-      }
-
-      const card = e.target.closest('.location-card-item');
-      if (card) {
-        const locId = card.getAttribute('data-loc-id');
-        if (locId && state.locations[locId]) {
-          state.activeLocation = locId;
-          storage.saveActiveLocation(locId);
-          saveActiveLocationToFirestore(locId);
-
-          renderActiveLocation();
-          renderLocationModalList();
-          refreshIcons();
-          locationModalBackdrop.classList.remove('active');
-          showToast(`Lokasi belanja diubah ke "${state.locations[locId].name}"`, 'success');
-        }
-      }
-    });
-  }
-
-  // Tambah lokasi belanja baru sendiri
+  // Tambah / Edit lokasi belanja
   if (newLocationForm) {
     newLocationForm.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -1381,9 +1402,11 @@ function setupLocationEvents() {
         return;
       }
 
-      const newId = 'loc-' + Date.now();
-      state.locations[newId] = {
-        id: newId,
+      const existingId = editLocId ? editLocId.value.trim() : '';
+      const targetId = existingId || ('loc-' + Date.now());
+
+      state.locations[targetId] = {
+        id: targetId,
         name,
         address
       };
@@ -1391,17 +1414,17 @@ function setupLocationEvents() {
       storage.saveLocations(state.locations);
       saveLocationsToFirestore(state.locations);
 
-      // Otomatis aktifkan lokasi baru
-      state.activeLocation = newId;
-      storage.saveActiveLocation(newId);
-      saveActiveLocationToFirestore(newId);
+      // Otomatis aktifkan lokasi ini
+      state.activeLocation = targetId;
+      storage.saveActiveLocation(targetId);
+      saveActiveLocationToFirestore(targetId);
 
-      newLocationForm.reset();
+      resetLocForm();
       renderActiveLocation();
       renderLocationModalList();
       refreshIcons();
       locationModalBackdrop.classList.remove('active');
-      showToast(`Lokasi "${name}" berhasil ditambahkan & dipilih!`, 'success');
+      showToast(`Lokasi "${name}" berhasil disimpan & dipilih!`, 'success');
     });
   }
 }
@@ -1421,7 +1444,7 @@ function renderLocationModalList() {
     const isDefault = ['loc-1', 'loc-2', 'loc-3', 'loc-4'].includes(id);
 
     return `
-      <div class="location-card-item ${isActive ? 'active' : ''}" data-loc-id="${id}">
+      <div class="location-card-item ${isActive ? 'active' : ''}" data-loc-id="${id}" title="Klik untuk pilih lokasi ini">
         <div class="location-card-left">
           <i data-lucide="${isActive ? 'check-circle-2' : 'map-pin'}" class="${isActive ? 'location-check-icon' : ''}" style="width:18px; height:18px; color:${isActive ? '#10b981' : '#818cf8'};"></i>
           <div>
@@ -1431,6 +1454,9 @@ function renderLocationModalList() {
         </div>
         <div style="display:flex; align-items:center; gap:6px;">
           ${isActive ? `<span style="font-size:0.7rem; color:#10b981; font-weight:700; padding:2px 6px; background:rgba(16, 185, 129, 0.15); border-radius:4px;">Aktif</span>` : ''}
+          <button type="button" class="action-mini-btn btn-edit-loc-item" data-loc-id="${id}" title="Edit / Custom Lokasi Ini" style="width:28px; height:28px; color:#818cf8;">
+            <i data-lucide="edit-2" style="width:13px; height:13px;"></i>
+          </button>
           ${!isDefault ? `
             <button type="button" class="action-mini-btn btn-delete-location" data-loc-id="${id}" title="Hapus Lokasi Ini" style="width:28px; height:28px; color:#ef4444;">
               <i data-lucide="trash-2" style="width:13px; height:13px;"></i>
@@ -1440,6 +1466,7 @@ function renderLocationModalList() {
       </div>
     `;
   }).join('');
+
   container.innerHTML = renderedHtml;
   const tabContainer = document.getElementById('tabLocationListContainer');
   if (tabContainer) tabContainer.innerHTML = renderedHtml;

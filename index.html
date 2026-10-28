@@ -109,22 +109,22 @@
           
 
 
-          <!-- Lokasi Belanja Aktif -->
-          <div class="location-selector-card" id="locationSelectorCard">
+          <!-- Lokasi Belanja Aktif (Bisa Diklik Langsung untuk Ganti / Custom Toko) -->
+          <div class="location-selector-card" id="locationSelectorCard" title="Klik untuk ganti atau custom lokasi belanja" style="cursor:pointer;">
             <div class="location-info">
               <div class="location-icon-box">
                 <i data-lucide="map-pin" style="width:16px; height:16px;"></i>
               </div>
               <div class="location-text">
-                <div class="location-label">Lokasi Belanja</div>
+                <div class="location-label">Lokasi Belanja (Sentuh untuk Ubah)</div>
                 <div class="location-name" id="activeLocationName">Supermarket Mr. Rian</div>
                 <div class="location-address" id="activeLocationAddress">Supermarket Utama</div>
               </div>
             </div>
             <div class="location-actions">
-              <button class="location-btn-change" id="btnChangeLocation" title="Ganti atau Tambah Lokasi Belanja">
-                <i data-lucide="map-pinned" style="width:13px; height:13px;"></i>
-                <span>Ganti Lokasi</span>
+              <button type="button" class="location-btn-change" id="btnChangeLocation" title="Ganti atau Tambah Lokasi Belanja">
+                <i data-lucide="edit-3" style="width:13px; height:13px;"></i>
+                <span>Ganti</span>
               </button>
             </div>
           </div>
@@ -652,43 +652,49 @@
 
 
   <!-- ========================================================================
-       MODAL: PILIH & KELOLA LOKASI BELANJA
+       MODAL: PILIH & ATUR LOKASI TOKO BELANJA (CUSTOM)
        ======================================================================== -->
   <div class="modal-backdrop" id="locationModalBackdrop">
-    <div class="modal-sheet" style="max-height:85vh;">
+    <div class="modal-sheet" style="max-height:88vh;">
       <div class="modal-handle-bar"></div>
       <div class="modal-sheet-header">
-        <h3 class="modal-title">Pilih & Kelola Lokasi Belanja</h3>
+        <h3 class="modal-title" id="locationModalTitle">Pilih & Atur Lokasi Toko</h3>
         <button class="modal-close-btn" id="btnCloseLocationModal">
           <i data-lucide="x" style="width:20px; height:20px;"></i>
         </button>
       </div>
 
       <div class="modal-sheet-content" style="gap:14px;">
+        <!-- Form Custom / Tambah Lokasi Baru (Paling Atas agar Langsung Terlihat & Mudah Dicustom!) -->
+        <div style="background:rgba(99, 102, 241, 0.08); border:1px solid rgba(99, 102, 241, 0.25); border-radius:var(--radius-md); padding:12px 14px;">
+          <div style="font-size:0.82rem; font-weight:800; color:#fff; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+            <i data-lucide="edit-3" style="width:15px; height:15px; color:#818cf8;"></i>
+            <span id="locFormTitle">Ketik / Tambah Lokasi Toko Sendiri:</span>
+          </div>
+
+          <form id="newLocationForm" style="display:flex; flex-direction:column; gap:8px;">
+            <input type="hidden" id="editLocId" value="">
+            <input type="text" id="inputNewLocName" class="form-input-text" placeholder="Nama Toko/Supermarket (contoh: Superindo / Pasar Pagi / Warung Bu Siti)" required autocomplete="off">
+            <input type="text" id="inputNewLocAddress" class="form-input-text" placeholder="Alamat / Keterangan (opsional, contoh: Dekat Kos / Kampus)">
+            <div style="display:flex; gap:8px; margin-top:2px;">
+              <button type="submit" class="btn-submit-modal" id="btnSubmitLocation" style="height:44px; flex:1;">
+                <i data-lucide="check" style="width:16px; height:16px;"></i>
+                <span id="btnSubmitLocText">Simpan & Gunakan Lokasi Ini</span>
+              </button>
+              <button type="button" class="btn-secondary-sm" id="btnCancelEditLoc" style="display:none; height:44px; padding:0 14px;">
+                Batal
+              </button>
+            </div>
+          </form>
+        </div>
+
         <div>
           <div style="font-size:0.75rem; color:var(--text-muted); font-weight:700; text-transform:uppercase; margin-bottom:8px;">
-            Daftar Lokasi Tersimpan:
+            Pilih Lokasi Tersimpan (Klik untuk Memilih):
           </div>
           <div class="location-list" id="locationListContainer">
             <!-- Dynamic location cards -->
           </div>
-        </div>
-
-        <!-- Form Tambah Lokasi Sendiri -->
-        <div style="border-top:1px solid var(--border-subtle); padding-top:12px;">
-          <div style="font-size:0.8rem; font-weight:700; color:#fff; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
-            <i data-lucide="plus-circle" style="width:15px; height:15px; color:var(--color-primary-light);"></i>
-            <span>Tambah Lokasi Baru:</span>
-          </div>
-
-          <form id="newLocationForm" style="display:flex; flex-direction:column; gap:8px;">
-            <input type="text" id="inputNewLocName" class="form-input-text" placeholder="Nama Tempat (contoh: Superindo / Pasar Pagi)" required>
-            <input type="text" id="inputNewLocAddress" class="form-input-text" placeholder="Keterangan / Alamat (opsional)">
-            <button type="submit" class="btn-submit-modal" style="height:44px; margin-top:2px;">
-              <i data-lucide="plus" style="width:16px; height:16px;"></i>
-              <span>Simpan Lokasi Ini</span>
-            </button>
-          </form>
         </div>
       </div>
     </div>
